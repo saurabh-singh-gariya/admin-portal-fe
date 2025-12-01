@@ -1,18 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useDashboardStore } from '../store/dashboardStore';
 import { useAuthStore } from '../store/authStore';
 import { Users, Building2, Receipt, TrendingUp, Activity, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { formatCurrency, formatNumber } from '../utils/formatters';
-
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
 
 export default function DashboardPage() {
   const { stats, isLoading, fetchDashboardStats } = useDashboardStore();
   const { admin } = useAuthStore();
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     fetchDashboardStats();

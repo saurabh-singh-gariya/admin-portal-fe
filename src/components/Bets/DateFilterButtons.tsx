@@ -1,5 +1,4 @@
 import { Calendar, X } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { getTodayRange, getThisWeekRange, getThisMonthRange, getThisYearRange, formatDateForInput } from '../../utils/dateFilters';
 import { BetFilters } from '../../types';
 

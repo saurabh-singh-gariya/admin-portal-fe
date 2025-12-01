@@ -4,7 +4,7 @@ import { useBetStore } from '../store/betStore';
 import { ArrowLeft } from 'lucide-react';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { formatDate, formatCurrency } from '../utils/formatters';
-import { BetStatus, Difficulty } from '../types';
+import { BetStatus } from '../types';
 
 export default function BetDetailsPage() {
   const { betId } = useParams<{ betId: string }>();

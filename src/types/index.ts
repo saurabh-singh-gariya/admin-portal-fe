@@ -43,6 +43,7 @@ export interface Bet {
   externalPlatformTxId?: string;
   userId: string;
   agentId: string;
+  operatorId?: string;
   roundId?: string;
   difficulty: Difficulty;
   betAmount: string;
@@ -88,6 +89,7 @@ export interface UserFilters {
   search?: string;
   createdFrom?: string;
   createdTo?: string;
+  page?: number;
 }
 
 export interface BetFilters {
@@ -98,6 +100,7 @@ export interface BetFilters {
   currency?: string;
   fromDate?: string;
   toDate?: string;
+  page?: number;
 }
 
 export interface DashboardStats {

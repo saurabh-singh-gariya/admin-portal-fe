@@ -324,7 +324,7 @@ export default function BetsPage() {
                       </td>
                       {admin?.role === 'SUPER_ADMIN' && (
                         <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden md:table-cell">
-                          {bet.operatorId}
+                          {bet.operatorId || bet.agentId}
                         </td>
                       )}
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">

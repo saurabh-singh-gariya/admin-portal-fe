@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import Pagination from '../components/Common/Pagination';
 import { formatDate, formatCurrency } from '../utils/formatters';
-import { User, UserFilters } from '../types';
+import { UserFilters } from '../types';
 
 export default function UsersPage() {
   const { users, pagination, filters, isLoading, fetchUsers, deleteUser } = useUserStore();

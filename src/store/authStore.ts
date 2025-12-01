@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
 
-      login: async (username: string, password: string) => {
+      login: async (username: string, _password: string) => {
         set({ isLoading: true });
         
         // Simulate API call

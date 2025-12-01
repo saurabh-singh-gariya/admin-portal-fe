@@ -27,20 +27,10 @@ interface SidebarProps {
 
 export default function Sidebar({ isMobileOpen: externalIsMobileOpen, setIsMobileOpen: externalSetIsMobileOpen }: SidebarProps = {}) {
   const [internalIsMobileOpen, setInternalIsMobileOpen] = useState(false);
-  const location = useLocation();
-  const { admin, logout } = useAuthStore();
 
   // Use external state if provided, otherwise use internal state
   const isMobileOpen = externalIsMobileOpen !== undefined ? externalIsMobileOpen : internalIsMobileOpen;
   const setIsMobileOpen = externalSetIsMobileOpen || setInternalIsMobileOpen;
-
-  const filteredMenuItems = menuItems.filter(item =>
-    admin?.role && item.roles.includes(admin.role)
-  );
-
-  const handleLogout = () => {
-    logout();
-  };
 
   return (
     <>

@@ -11,11 +11,11 @@
  * - Type-safe API responses
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { BetFilters, UserFilters } from '../types';
 
 // TODO: Set this from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL as string) || 'http://localhost:3000';
 const ADMIN_API_PREFIX = '/admin/api/v1';
 
 class ApiService {
@@ -56,7 +56,7 @@ class ApiService {
 
   // ==================== Authentication ====================
   
-  async login(username: string, password: string) {
+  async login(_username: string, _password: string) {
     // TODO: Implement
     // return this.client.post('/auth/login', { username, password });
   }
@@ -66,49 +66,49 @@ class ApiService {
     // return this.client.post('/auth/logout');
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(_refreshToken: string) {
     // TODO: Implement
     // return this.client.post('/auth/refresh', { refreshToken });
   }
 
   // ==================== Bets ====================
   
-  async getBets(filters?: BetFilters) {
+  async getBets(_filters?: BetFilters) {
     // TODO: Implement
     // const params = this.buildBetQueryParams(filters);
     // return this.client.get('/bets', { params });
     // Expected response: { status: '0000', data: { bets: [], pagination: {}, summary: {} } }
   }
 
-  async getBet(betId: string) {
+  async getBet(_betId: string) {
     // TODO: Implement
     // return this.client.get(`/bets/${betId}`);
   }
 
   // ==================== Users ====================
   
-  async getUsers(filters?: UserFilters) {
+  async getUsers(_filters?: UserFilters) {
     // TODO: Implement
     // const params = this.buildUserQueryParams(filters);
     // return this.client.get('/users', { params });
   }
 
-  async getUser(userId: string, agentId: string) {
+  async getUser(_userId: string, _agentId: string) {
     // TODO: Implement
     // return this.client.get(`/users/${userId}/${agentId}`);
   }
 
-  async createUser(data: any) {
+  async createUser(_data: any) {
     // TODO: Implement
     // return this.client.post('/users', data);
   }
 
-  async updateUser(userId: string, agentId: string, data: any) {
+  async updateUser(_userId: string, _agentId: string, _data: any) {
     // TODO: Implement
     // return this.client.patch(`/users/${userId}/${agentId}`, data);
   }
 
-  async deleteUser(userId: string, agentId: string) {
+  async deleteUser(_userId: string, _agentId: string) {
     // TODO: Implement
     // return this.client.delete(`/users/${userId}/${agentId}`);
   }
@@ -120,22 +120,22 @@ class ApiService {
     // return this.client.get('/agents');
   }
 
-  async getAgent(agentId: string) {
+  async getAgent(_agentId: string) {
     // TODO: Implement
     // return this.client.get(`/agents/${agentId}`);
   }
 
-  async createAgent(data: any) {
+  async createAgent(_data: any) {
     // TODO: Implement
     // return this.client.post('/agents', data);
   }
 
-  async updateAgent(agentId: string, data: any) {
+  async updateAgent(_agentId: string, _data: any) {
     // TODO: Implement
     // return this.client.patch(`/agents/${agentId}`, data);
   }
 
-  async deleteAgent(agentId: string) {
+  async deleteAgent(_agentId: string) {
     // TODO: Implement
     // return this.client.delete(`/agents/${agentId}`);
   }
@@ -147,22 +147,22 @@ class ApiService {
     // return this.client.get('/config');
   }
 
-  async getConfig(key: string) {
+  async getConfig(_key: string) {
     // TODO: Implement
     // return this.client.get(`/config/${key}`);
   }
 
-  async createConfig(key: string, value: string) {
+  async createConfig(_key: string, _value: string) {
     // TODO: Implement
     // return this.client.post('/config', { key, value });
   }
 
-  async updateConfig(key: string, value: string) {
+  async updateConfig(_key: string, _value: string) {
     // TODO: Implement
     // return this.client.patch(`/config/${key}`, { value });
   }
 
-  async deleteConfig(key: string) {
+  async deleteConfig(_key: string) {
     // TODO: Implement
     // return this.client.delete(`/config/${key}`);
   }
@@ -176,36 +176,18 @@ class ApiService {
 
   // ==================== Helper Methods ====================
   
-  private buildBetQueryParams(filters?: BetFilters): Record<string, any> {
-    if (!filters) return {};
-    
-    const params: Record<string, any> = {};
-    
-    if (filters.page) params.page = filters.page;
-    if (filters.userId) params.userId = filters.userId;
-    if (filters.agentId) params.agentId = filters.agentId;
-    if (filters.status) params.status = filters.status;
-    if (filters.difficulty) params.difficulty = filters.difficulty;
-    if (filters.currency) params.currency = filters.currency;
-    if (filters.fromDate) params.fromDate = filters.fromDate;
-    if (filters.toDate) params.toDate = filters.toDate;
-    
-    return params;
+  // These methods are prepared for future API integration
+  // They will be used when API endpoints are implemented
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private buildBetQueryParams(_filters?: BetFilters): Record<string, any> {
+    // TODO: Implement when API is ready
+    return {};
   }
 
-  private buildUserQueryParams(filters?: UserFilters): Record<string, any> {
-    if (!filters) return {};
-    
-    const params: Record<string, any> = {};
-    
-    if (filters.page) params.page = filters.page;
-    if (filters.agentId) params.agentId = filters.agentId;
-    if (filters.currency) params.currency = filters.currency;
-    if (filters.search) params.search = filters.search;
-    if (filters.createdFrom) params.createdFrom = filters.createdFrom;
-    if (filters.createdTo) params.createdTo = filters.createdTo;
-    
-    return params;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private buildUserQueryParams(_filters?: UserFilters): Record<string, any> {
+    // TODO: Implement when API is ready
+    return {};
   }
 }
 
