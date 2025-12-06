@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useBetStore } from '../store/betStore';
 import { useAuthStore } from '../store/authStore';
-import { Search, Eye, TrendingUp, Calendar } from 'lucide-react';
+import { Search, Eye, TrendingUp, Calendar, Filter, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import Pagination from '../components/Common/Pagination';
 import { formatDate, formatCurrency } from '../utils/formatters';
-import { getThisWeekRange, getTodayRange, getThisMonthRange, getThisYearRange, formatDateForInput } from '../utils/dateFilters';
+import { getLastTwoMonthsRange, getTodayRange, getThisWeekRange, getThisMonthRange, getLastMonthRange, formatDateForInput } from '../utils/dateFilters';
 import { BetFilters, BetStatus, Difficulty } from '../types';
 
 // Helper to check if current filters match a specific date range
@@ -25,12 +25,12 @@ export default function BetsPage() {
   const { admin } = useAuthStore();
   const [search, setSearch] = useState('');
   
-  // Initialize with "This Week" as default
+  // Initialize with "Last 2 Months" as default (as per design doc)
   const getDefaultFilters = (): BetFilters => {
-    const thisWeekRange = getThisWeekRange();
+    const twoMonthsRange = getLastTwoMonthsRange();
     return {
-      fromDate: thisWeekRange.fromDate,
-      toDate: thisWeekRange.toDate,
+      fromDate: twoMonthsRange.fromDate,
+      toDate: twoMonthsRange.toDate,
     };
   };
   
@@ -40,26 +40,58 @@ export default function BetsPage() {
   });
 
   useEffect(() => {
-    // On initial load, fetch with default "This Week" filter if no filters are set
+    // On initial load, fetch with default "Last 2 Months" filter if no filters are set
+    // If userId is in URL params (from Player Summary navigation), use it
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdFromUrl = urlParams.get('userId');
+    
     const initialFilters = filters.fromDate && filters.toDate ? filters : getDefaultFilters();
     if (!filters.fromDate || !filters.toDate) {
       setLocalFilters(initialFilters);
     }
-    fetchBets(initialFilters);
+    
+    // If userId is in URL, add it to filters
+    if (userIdFromUrl && !filters.userId) {
+      const filtersWithUserId = { ...initialFilters, userId: userIdFromUrl };
+      setLocalFilters(filtersWithUserId);
+      setSearch(userIdFromUrl);
+      fetchBets(filtersWithUserId);
+    } else {
+      fetchBets(initialFilters);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Handle filter changes (update local state only, don't call API)
   const handleFilterChange = (key: keyof BetFilters, value: string) => {
-    const newFilters = { ...localFilters, [key]: value, page: 1 };
-    setLocalFilters(newFilters);
-    fetchBets(newFilters);
+    setLocalFilters({ ...localFilters, [key]: value || undefined });
   };
 
-  const handleDateFilterChange = (newFilters: BetFilters) => {
-    setLocalFilters(newFilters);
-    fetchBets(newFilters);
+  // Handle date range changes (update local state only)
+  const handleDateRangeChange = (fromDate?: string, toDate?: string) => {
+    setLocalFilters({ ...localFilters, fromDate, toDate });
   };
 
+  // Apply filters - called when Submit button is clicked
+  const handleApplyFilters = () => {
+    const filtersToApply = { ...localFilters, page: 1 };
+    fetchBets(filtersToApply);
+  };
+
+  // Reset filters to defaults
+  const handleResetFilters = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdFromUrl = urlParams.get('userId');
+    const defaultFilters = getDefaultFilters();
+    const resetFilters = userIdFromUrl 
+      ? { ...defaultFilters, userId: userIdFromUrl }
+      : defaultFilters;
+    setLocalFilters(resetFilters);
+    setSearch(userIdFromUrl || '');
+    fetchBets(resetFilters);
+  };
+
+  // Handle page change (preserves current filters)
   const handlePageChange = (page: number) => {
     fetchBets({ ...localFilters, page });
   };
@@ -88,8 +120,8 @@ export default function BetsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="mt-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bet History</h1>
-        <p className="text-sm sm:text-base text-gray-500 mt-1">View and analyze all bets</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Player Bets</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-1">View and analyze all bets (last 2 months)</p>
       </div>
 
       {/* Summary Cards - Compact Design */}
@@ -142,66 +174,13 @@ export default function BetsPage() {
         </div>
       )}
 
-      {/* Filters - Always Open, Ultra Compact */}
-      <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3">
-        <div className="flex flex-col gap-3">
-          {/* Search - Full Width on Mobile */}
-          <div className="w-full relative">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              id="search-user-id"
-              name="search-user-id"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="User ID..."
-              className="w-full pl-9 pr-3 py-2.5 sm:py-2 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
-
-          {/* All Filters - Responsive Layout */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-            {/* Date Quick Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="text-xs sm:text-xs font-medium text-gray-600 whitespace-nowrap">Quick:</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  onClick={() => handleDateFilterChange({ ...localFilters, ...getTodayRange(), page: 1 })}
-                  className={`px-3 py-2 sm:px-2.5 sm:py-1 text-sm sm:text-xs font-medium rounded transition-colors whitespace-nowrap min-h-[44px] sm:min-h-0 ${
-                    isDateRangeMatch(localFilters, getTodayRange()) ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => handleDateFilterChange({ ...localFilters, ...getThisWeekRange(), page: 1 })}
-                  className={`px-3 py-2 sm:px-2.5 sm:py-1 text-sm sm:text-xs font-medium rounded transition-colors whitespace-nowrap min-h-[44px] sm:min-h-0 ${
-                    isDateRangeMatch(localFilters, getThisWeekRange()) ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  This Week
-                </button>
-                <button
-                  onClick={() => handleDateFilterChange({ ...localFilters, ...getThisMonthRange(), page: 1 })}
-                  className={`px-3 py-2 sm:px-2.5 sm:py-1 text-sm sm:text-xs font-medium rounded transition-colors whitespace-nowrap min-h-[44px] sm:min-h-0 ${
-                    isDateRangeMatch(localFilters, getThisMonthRange()) ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  This Month
-                </button>
-                <button
-                  onClick={() => handleDateFilterChange({ ...localFilters, ...getThisYearRange(), page: 1 })}
-                  className={`px-3 py-2 sm:px-2.5 sm:py-1 text-sm sm:text-xs font-medium rounded transition-colors whitespace-nowrap min-h-[44px] sm:min-h-0 ${
-                    isDateRangeMatch(localFilters, getThisYearRange()) ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  This Year
-                </button>
-              </div>
-            </div>
-
-            {/* Date Range Inputs */}
-            <div className="flex items-center gap-2">
+      {/* Filters */}
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+        <div className="flex flex-row gap-4 items-start">
+          {/* Section 1: Date Filters (Left) */}
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            {/* Calendar */}
+            <div className="flex items-center gap-2 w-full justify-between">
               <Calendar className="text-gray-400 flex-shrink-0" size={16} />
               <input
                 type="date"
@@ -210,11 +189,13 @@ export default function BetsPage() {
                 value={localFilters.fromDate ? formatDateForInput(localFilters.fromDate) : ''}
                 onChange={(e) => {
                   const date = e.target.value ? new Date(e.target.value).setHours(0,0,0,0) : null;
-                  handleDateFilterChange({ ...localFilters, fromDate: date ? new Date(date).toISOString() : undefined, page: 1 });
+                  handleDateRangeChange(date ? new Date(date).toISOString() : undefined, localFilters.toDate);
                 }}
-                className="flex-1 sm:w-32 px-2.5 py-2 sm:py-1 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[44px] sm:min-h-0"
+                min={formatDateForInput(getLastTwoMonthsRange().fromDate)}
+                max={formatDateForInput(new Date().toISOString())}
+                className="w-32 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-              <span className="text-sm sm:text-xs text-gray-400">→</span>
+              <span className="text-xs text-gray-500">→</span>
               <input
                 type="date"
                 id="filter-to-date"
@@ -222,15 +203,86 @@ export default function BetsPage() {
                 value={localFilters.toDate ? formatDateForInput(localFilters.toDate) : ''}
                 onChange={(e) => {
                   const date = e.target.value ? new Date(e.target.value).setHours(23,59,59,999) : null;
-                  handleDateFilterChange({ ...localFilters, toDate: date ? new Date(date).toISOString() : undefined, page: 1 });
+                  handleDateRangeChange(localFilters.fromDate, date ? new Date(date).toISOString() : undefined);
                 }}
-                className="flex-1 sm:w-32 px-2.5 py-2 sm:py-1 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[44px] sm:min-h-0"
+                min={formatDateForInput(getLastTwoMonthsRange().fromDate)}
+                max={formatDateForInput(new Date().toISOString())}
+                className="w-32 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
+            {/* Quick Filters */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Quick:</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => handleDateRangeChange(getTodayRange().fromDate, getTodayRange().toDate)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    isDateRangeMatch(localFilters, getTodayRange()) 
+                      ? 'bg-primary-500 text-white shadow-sm' 
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => handleDateRangeChange(getThisWeekRange().fromDate, getThisWeekRange().toDate)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    isDateRangeMatch(localFilters, getThisWeekRange()) 
+                      ? 'bg-primary-500 text-white shadow-sm' 
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  This Week
+                </button>
+                <button
+                  onClick={() => handleDateRangeChange(getThisMonthRange().fromDate, getThisMonthRange().toDate)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    isDateRangeMatch(localFilters, getThisMonthRange()) 
+                      ? 'bg-primary-500 text-white shadow-sm' 
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  This Month
+                </button>
+                <button
+                  onClick={() => handleDateRangeChange(getLastMonthRange().fromDate, getLastMonthRange().toDate)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    isDateRangeMatch(localFilters, getLastMonthRange()) 
+                      ? 'bg-primary-500 text-white shadow-sm' 
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Last Month
+                </button>
+              </div>
+            </div>
+          </div>
 
-            {/* Other Filters - Stack on Mobile */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2 sm:ml-auto">
-              {admin?.role === 'SUPER_ADMIN' && (
+          {/* Section 2: Search Items (Middle) */}
+          <div className="flex flex-col gap-2 flex-1 min-w-0">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                type="text"
+                id="search-user-id"
+                name="search-user-id"
+                value={localFilters.userId || search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  handleFilterChange('userId', e.target.value);
+                }}
+                placeholder="Player ID..."
+                className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleApplyFilters();
+                  }
+                }}
+              />
+            </div>
+            {admin?.role === 'SUPER_ADMIN' && (
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
                 <input
                   type="text"
                   id="filter-agent-id"
@@ -238,45 +290,91 @@ export default function BetsPage() {
                   value={localFilters.agentId || ''}
                   onChange={(e) => handleFilterChange('agentId', e.target.value)}
                   placeholder="Agent ID"
-                  className="flex-1 sm:w-32 px-2.5 py-2 sm:py-1 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[44px] sm:min-h-0"
+                  className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-              )}
-              <select
-                id="filter-status"
-                name="filter-status"
-                value={localFilters.status || ''}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="flex-1 sm:w-28 px-2.5 py-2 sm:py-1 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[44px] sm:min-h-0"
-              >
-                <option value="">Status</option>
-                {Object.values(BetStatus).map((status) => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-              <select
-                id="filter-difficulty"
-                name="filter-difficulty"
-                value={localFilters.difficulty || ''}
-                onChange={(e) => handleFilterChange('difficulty', e.target.value)}
-                className="flex-1 sm:w-32 px-2.5 py-2 sm:py-1 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[44px] sm:min-h-0"
-              >
-                <option value="">Difficulty</option>
-                {Object.values(Difficulty).map((diff) => (
-                  <option key={diff} value={diff}>{diff}</option>
-                ))}
-              </select>
-              <select
-                id="filter-currency"
-                name="filter-currency"
-                value={localFilters.currency || ''}
-                onChange={(e) => handleFilterChange('currency', e.target.value)}
-                className="flex-1 sm:w-24 px-2.5 py-2 sm:py-1 text-sm sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[44px] sm:min-h-0"
-              >
-                <option value="">Currency</option>
-                <option value="INR">INR</option>
-              </select>
-            </div>
+              </div>
+            )}
           </div>
+
+          {/* Section 3: Dropdowns (Right) */}
+          <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+            <select
+              id="filter-platform"
+              name="filter-platform"
+              value={localFilters.platform || ''}
+              onChange={(e) => handleFilterChange('platform', e.target.value)}
+              className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Platform</option>
+              <option value="SPADE">SPADE</option>
+              <option value="EVOLUTION">EVOLUTION</option>
+              <option value="PRAGMATIC">PRAGMATIC</option>
+            </select>
+            <select
+              id="filter-game"
+              name="filter-game"
+              value={localFilters.game || ''}
+              onChange={(e) => handleFilterChange('game', e.target.value)}
+              className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Game</option>
+              <option value="ChickenRoad">ChickenRoad</option>
+              <option value="LuckyWheel">LuckyWheel</option>
+              <option value="DiceGame">DiceGame</option>
+            </select>
+            <select
+              id="filter-status"
+              name="filter-status"
+              value={localFilters.status || ''}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Status</option>
+              {Object.values(BetStatus).map((status) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+            <select
+              id="filter-difficulty"
+              name="filter-difficulty"
+              value={localFilters.difficulty || ''}
+              onChange={(e) => handleFilterChange('difficulty', e.target.value)}
+              className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Difficulty</option>
+              {Object.values(Difficulty).map((diff) => (
+                <option key={diff} value={diff}>{diff}</option>
+              ))}
+            </select>
+            <select
+              id="filter-currency"
+              name="filter-currency"
+              value={localFilters.currency || ''}
+              onChange={(e) => handleFilterChange('currency', e.target.value)}
+              className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Currency</option>
+              <option value="INR">INR</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Submit and Reset Buttons */}
+        <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+          <button
+            onClick={handleResetFilters}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            <RotateCcw size={16} />
+            Reset
+          </button>
+          <button
+            onClick={handleApplyFilters}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-500 rounded-md hover:bg-primary-600 transition-colors shadow-sm"
+          >
+            <Filter size={16} />
+            Apply Filters
+          </button>
         </div>
       </div>
 
@@ -293,10 +391,12 @@ export default function BetsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bet ID</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">User ID</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Player ID</th>
                     {admin?.role === 'SUPER_ADMIN' && (
                       <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Operator ID</th>
                     )}
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Platform</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Game</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Win Amount</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Difficulty</th>
@@ -327,6 +427,12 @@ export default function BetsPage() {
                           {bet.operatorId || bet.agentId}
                         </td>
                       )}
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                        {bet.platform || '-'}
+                      </td>
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                        {bet.game || '-'}
+                      </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
                         {formatCurrency(bet.betAmount, bet.currency)}
                       </td>

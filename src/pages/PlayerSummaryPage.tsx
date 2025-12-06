@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAgentStore } from '../store/agentStore';
-import { Plus, Edit, Users, Search, Calendar, Filter, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { usePlayerSummaryStore } from '../store/playerSummaryStore';
+import { Search, Calendar, Eye, Filter, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import Pagination from '../components/Common/Pagination';
 import { formatCurrency } from '../utils/formatters';
 import { getLastTwoMonthsRange, getTodayRange, getThisWeekRange, getThisMonthRange, getLastMonthRange, formatDateForInput } from '../utils/dateFilters';
-import { AgentFilters } from '../types';
+import { PlayerSummaryFilters } from '../types';
 
-export default function AgentsPage() {
-  const { agents, pagination, filters, totals, isLoading, fetchAgents } = useAgentStore();
+export default function PlayerSummaryPage() {
+  const { players, pagination, filters, totals, isLoading, fetchPlayers } = usePlayerSummaryStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   
   // Initialize with last 2 months as default
-  const getDefaultFilters = (): AgentFilters => {
+  const getDefaultFilters = (): PlayerSummaryFilters => {
     const twoMonthsRange = getLastTwoMonthsRange();
     return {
       fromDate: twoMonthsRange.fromDate,
@@ -23,8 +23,16 @@ export default function AgentsPage() {
     };
   };
   
-  const [localFilters, setLocalFilters] = useState<AgentFilters>(() => {
-    return filters.fromDate && filters.toDate ? filters : getDefaultFilters();
+  const [localFilters, setLocalFilters] = useState<PlayerSummaryFilters>(() => {
+    // Check if agentId is in URL params (from Agents page navigation)
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentIdFromUrl = urlParams.get('agentId');
+    
+    const defaultFilters = filters.fromDate && filters.toDate ? filters : getDefaultFilters();
+    if (agentIdFromUrl) {
+      return { ...defaultFilters, agentId: agentIdFromUrl };
+    }
+    return defaultFilters;
   });
 
   useEffect(() => {
@@ -38,18 +46,18 @@ export default function AgentsPage() {
     }
     
     // If agentId is in URL, add it to filters
-    if (agentIdFromUrl && !filters.agentId) {
+    if (agentIdFromUrl) {
       const filtersWithAgentId = { ...initialFilters, agentId: agentIdFromUrl };
       setLocalFilters(filtersWithAgentId);
-      fetchAgents(filtersWithAgentId);
+      fetchPlayers(filtersWithAgentId);
     } else {
-      fetchAgents(initialFilters);
+      fetchPlayers(initialFilters);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle filter changes (update local state only, don't call API)
-  const handleFilterChange = (key: keyof AgentFilters, value: string) => {
+  const handleFilterChange = (key: keyof PlayerSummaryFilters, value: string) => {
     setLocalFilters({ ...localFilters, [key]: value || undefined });
   };
 
@@ -61,7 +69,7 @@ export default function AgentsPage() {
   // Apply filters - called when Submit button is clicked
   const handleApplyFilters = () => {
     const filtersToApply = { ...localFilters, page: 1 };
-    fetchAgents(filtersToApply);
+    fetchPlayers(filtersToApply);
   };
 
   // Reset filters to defaults
@@ -73,21 +81,21 @@ export default function AgentsPage() {
       ? { ...defaultFilters, agentId: agentIdFromUrl }
       : defaultFilters;
     setLocalFilters(resetFilters);
-    setSearch(agentIdFromUrl || '');
-    fetchAgents(resetFilters);
+    setSearch('');
+    fetchPlayers(resetFilters);
   };
 
   // Handle page change (preserves current filters)
   const handlePageChange = (page: number) => {
-    fetchAgents({ ...localFilters, page });
+    fetchPlayers({ ...localFilters, page });
   };
 
-  const handleViewUsers = (agentId: string) => {
-    navigate(`/player-summary?agentId=${agentId}`);
+  const handleViewPlayerBets = (playerId: string) => {
+    navigate(`/bets?userId=${playerId}`);
   };
 
   // Helper to check if current filters match a specific date range
-  const isDateRangeMatch = (filters: AgentFilters, range: { fromDate: string; toDate: string }): boolean => {
+  const isDateRangeMatch = (filters: PlayerSummaryFilters, range: { fromDate: string; toDate: string }): boolean => {
     if (!filters.fromDate || !filters.toDate) return false;
     const filterFrom = new Date(filters.fromDate).setHours(0, 0, 0, 0);
     const filterTo = new Date(filters.toDate).setHours(23, 59, 59, 999);
@@ -99,15 +107,9 @@ export default function AgentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mt-2">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Agent Statistics</h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-1">View agent bet statistics and performance</p>
-        </div>
-        <Link to="/agents/new" className="btn-primary flex items-center gap-2">
-          <Plus size={20} />
-          Add Agent
-        </Link>
+      <div className="mt-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Player Summary</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-1">View player statistics per platform-game combination</p>
       </div>
 
       {/* Summary Cards */}
@@ -118,13 +120,22 @@ export default function AgentsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-shadow"
           >
+            <p className="text-xs text-gray-500 mb-0.5">Total Players</p>
+            <p className="text-lg sm:text-xl font-bold text-gray-900">{totals.totalPlayers.toLocaleString()}</p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-shadow"
+          >
             <p className="text-xs text-gray-500 mb-0.5">Total Bet Count</p>
             <p className="text-lg sm:text-xl font-bold text-gray-900">{totals.totalBetCount.toLocaleString()}</p>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
+            transition={{ delay: 0.1 }}
             className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-shadow"
           >
             <p className="text-xs text-gray-500 mb-0.5">Total Bet Amount</p>
@@ -135,7 +146,18 @@ export default function AgentsPage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            transition={{ delay: 0.15 }}
+            className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-shadow"
+          >
+            <p className="text-xs text-gray-500 mb-0.5">Player Win/Loss</p>
+            <p className={`text-lg sm:text-xl font-bold ${parseFloat(totals.totalPlayerWinLoss) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+              {formatCurrency(totals.totalPlayerWinLoss, 'INR')}
+            </p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
             className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-shadow"
           >
             <p className="text-xs text-gray-500 mb-0.5">Total Win/Loss</p>
@@ -143,30 +165,8 @@ export default function AgentsPage() {
               {formatCurrency(totals.totalWinLoss, 'INR')}
             </p>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-shadow"
-          >
-            <p className="text-xs text-gray-500 mb-0.5">Margin %</p>
-            <p className="text-lg sm:text-xl font-bold text-gray-900">
-              {totals.totalMarginPercent.toFixed(2)}%
-            </p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 hover:shadow-sm transition-shadow"
-          >
-            <p className="text-xs text-gray-600 mb-0.5">Company Win/Loss</p>
-            <p className="text-lg sm:text-xl font-bold text-green-700">
-              {formatCurrency(totals.companyTotalWinLoss, 'INR')}
-            </p>
-          </motion.div>
-                </div>
-              )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
@@ -205,7 +205,7 @@ export default function AgentsPage() {
               />
             </div>
             {/* Quick Filters */}
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Quick:</span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
@@ -258,20 +258,32 @@ export default function AgentsPage() {
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
               <input
                 type="text"
-                id="search-agent-id"
-                name="search-agent-id"
-                value={localFilters.agentId || search}
+                id="search-player-id"
+                name="search-player-id"
+                value={localFilters.playerId || search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  handleFilterChange('agentId', e.target.value);
+                  handleFilterChange('playerId', e.target.value);
                 }}
-                placeholder="Agent ID..."
+                placeholder="Player ID..."
                 className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     handleApplyFilters();
                   }
                 }}
+              />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                type="text"
+                id="filter-agent-id"
+                name="filter-agent-id"
+                value={localFilters.agentId || ''}
+                onChange={(e) => handleFilterChange('agentId', e.target.value)}
+                placeholder="Agent ID"
+                className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -324,7 +336,7 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Agents Table */}
+      {/* Players Table */}
       <div className="card p-0 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -336,80 +348,58 @@ export default function AgentsPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent ID</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Player ID</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Platform</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Game</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bet Count</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Bet Amount</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Win/Loss</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Adjustment</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Player Win/Loss</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Total Win/Loss</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Margin %</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Company Win/Loss</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {agents.map((agent) => (
+                  {players.map((player) => (
                     <motion.tr
-                      key={`${agent.agentId}-${agent.platform}-${agent.game}`}
+                      key={`${player.playerId}-${player.platform}-${player.game}`}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                        {agent.agentId}
+                        {player.playerId}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
-                        {agent.platform}
+                        {player.platform}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
-                        {agent.game}
+                        {player.game}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        {agent.betCount.toLocaleString()}
+                        {player.betCount.toLocaleString()}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900 hidden md:table-cell">
-                        {formatCurrency(agent.betAmount, 'INR')}
+                        {formatCurrency(player.betAmount, 'INR')}
                       </td>
                       <td className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold hidden lg:table-cell ${
-                        parseFloat(agent.winLoss) >= 0 ? 'text-green-700' : 'text-red-700'
+                        parseFloat(player.playerWinLoss) >= 0 ? 'text-green-700' : 'text-red-700'
                       }`}>
-                        {formatCurrency(agent.winLoss, 'INR')}
-                      </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden xl:table-cell">
-                        {formatCurrency(agent.adjustment, 'INR')}
+                        {formatCurrency(player.playerWinLoss, 'INR')}
                       </td>
                       <td className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold hidden xl:table-cell ${
-                        parseFloat(agent.totalWinLoss) >= 0 ? 'text-green-700' : 'text-red-700'
+                        parseFloat(player.totalWinLoss) >= 0 ? 'text-green-700' : 'text-red-700'
                       }`}>
-                        {formatCurrency(agent.totalWinLoss, 'INR')}
-                      </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden lg:table-cell">
-                        {agent.marginPercent.toFixed(2)}%
-                      </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-700 hidden xl:table-cell">
-                        {formatCurrency(agent.companyTotalWinLoss, 'INR')}
+                        {formatCurrency(player.totalWinLoss, 'INR')}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-right text-xs sm:text-sm">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            to={`/agents/${agent.agentId}`}
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
-                            title="Edit Agent"
-                          >
-                            <Edit size={16} />
-                            <span className="hidden sm:inline">Edit</span>
-                          </Link>
-                          <button
-                            onClick={() => handleViewUsers(agent.agentId)}
-                            className="inline-flex items-center gap-1 text-green-600 hover:text-green-800"
-                            title="View Players"
-                          >
-                            <Users size={16} />
-                            <span className="hidden sm:inline">Players</span>
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleViewPlayerBets(player.playerId)}
+                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                          title="View Player Bets"
+                        >
+                          <Eye size={16} />
+                          <span className="hidden sm:inline">View Bets</span>
+                        </button>
                       </td>
                     </motion.tr>
                   ))}
@@ -423,3 +413,4 @@ export default function AgentsPage() {
     </div>
   );
 }
+

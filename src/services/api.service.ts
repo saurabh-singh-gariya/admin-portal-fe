@@ -12,7 +12,8 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { BetFilters, UserFilters } from '../types';
+import { BetFilters, UserFilters, AgentFilters, PlayerSummaryFilters } from '../types';
+import { buildBetQueryParams, buildAgentQueryParams, buildPlayerSummaryQueryParams } from '../utils/queryBuilder';
 
 // TODO: Set this from environment variables
 const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL as string) || 'http://localhost:3000';
@@ -44,11 +45,22 @@ class ApiService {
 
     // Response interceptor - Handle errors and token refresh
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Standardize response format
+        // Backend should return: { status: '0000', data: {...} }
+        return response;
+      },
       async (error) => {
-        // TODO: Handle 401 - refresh token
-        // TODO: Handle 403 - unauthorized
-        // TODO: Handle other errors
+        // TODO: Backend Integration - Error handling
+        // if (error.response?.status === 401) {
+        //   // Token expired - try to refresh
+        //   // const refreshToken = useAuthStore.getState().refreshToken;
+        //   // await apiService.refreshToken(refreshToken);
+        //   // Retry original request
+        // } else if (error.response?.status === 403) {
+        //   // Unauthorized - redirect to login
+        //   // window.location.href = '/';
+        // }
         return Promise.reject(error);
       }
     );
@@ -73,11 +85,22 @@ class ApiService {
 
   // ==================== Bets ====================
   
-  async getBets(_filters?: BetFilters) {
-    // TODO: Implement
-    // const params = this.buildBetQueryParams(filters);
-    // return this.client.get('/bets', { params });
-    // Expected response: { status: '0000', data: { bets: [], pagination: {}, summary: {} } }
+  async getBets(filters?: BetFilters) {
+    // TODO: Replace with actual API call when backend is ready
+    // const params = buildBetQueryParams(filters || {});
+    // const response = await this.client.get('/bets', { params });
+    // return response.data;
+    // Expected response: { status: '0000', data: { bets: [], pagination: {}, totals: {} } }
+    throw new Error('Not implemented - backend integration needed');
+  }
+
+  async getBetTotals(filters?: BetFilters) {
+    // TODO: Replace with actual API call when backend is ready
+    // const params = buildBetQueryParams(filters || {});
+    // const response = await this.client.get('/bets/totals', { params });
+    // return response.data;
+    // Expected response: { status: '0000', data: { totalBets, totalBetAmount, totalWinAmount, netRevenue } }
+    throw new Error('Not implemented - backend integration needed');
   }
 
   async getBet(_betId: string) {
@@ -115,9 +138,22 @@ class ApiService {
 
   // ==================== Agents ====================
   
-  async getAgents() {
-    // TODO: Implement
-    // return this.client.get('/agents');
+  async getAgents(filters?: AgentFilters) {
+    // TODO: Replace with actual API call when backend is ready
+    // const params = buildAgentQueryParams(filters || {});
+    // const response = await this.client.get('/agents', { params });
+    // return response.data;
+    // Expected response: { status: '0000', data: { agents: [], pagination: {}, totals: {} } }
+    throw new Error('Not implemented - backend integration needed');
+  }
+
+  async getAgentTotals(filters?: AgentFilters) {
+    // TODO: Replace with actual API call when backend is ready
+    // const params = buildAgentQueryParams(filters || {});
+    // const response = await this.client.get('/agents/totals', { params });
+    // return response.data;
+    // Expected response: { status: '0000', data: { totalBetCount, totalBetAmount, totalWinLoss, totalMarginPercent, companyTotalWinLoss } }
+    throw new Error('Not implemented - backend integration needed');
   }
 
   async getAgent(_agentId: string) {
@@ -138,6 +174,26 @@ class ApiService {
   async deleteAgent(_agentId: string) {
     // TODO: Implement
     // return this.client.delete(`/agents/${agentId}`);
+  }
+
+  // ==================== Player Summary ====================
+  
+  async getPlayerSummary(filters?: PlayerSummaryFilters) {
+    // TODO: Replace with actual API call when backend is ready
+    // const params = buildPlayerSummaryQueryParams(filters || {});
+    // const response = await this.client.get('/player-summary', { params });
+    // return response.data;
+    // Expected response: { status: '0000', data: { players: [], pagination: {}, totals: {} } }
+    throw new Error('Not implemented - backend integration needed');
+  }
+
+  async getPlayerSummaryTotals(filters?: PlayerSummaryFilters) {
+    // TODO: Replace with actual API call when backend is ready
+    // const params = buildPlayerSummaryQueryParams(filters || {});
+    // const response = await this.client.get('/player-summary/totals', { params });
+    // return response.data;
+    // Expected response: { status: '0000', data: { totalPlayers, totalBetCount, totalBetAmount, totalPlayerWinLoss, totalWinLoss } }
+    throw new Error('Not implemented - backend integration needed');
   }
 
   // ==================== Config ====================
@@ -176,19 +232,8 @@ class ApiService {
 
   // ==================== Helper Methods ====================
   
-  // These methods are prepared for future API integration
-  // They will be used when API endpoints are implemented
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private buildBetQueryParams(_filters?: BetFilters): Record<string, any> {
-    // TODO: Implement when API is ready
-    return {};
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private buildUserQueryParams(_filters?: UserFilters): Record<string, any> {
-    // TODO: Implement when API is ready
-    return {};
-  }
+  // Note: Query parameter building is now handled by utility functions in utils/queryBuilder.ts
+  // This keeps the API service clean and makes it easier to test and maintain
 }
 
 export const apiService = new ApiService();

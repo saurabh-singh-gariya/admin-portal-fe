@@ -62,6 +62,23 @@ export function getThisMonthRange(): DateRange {
 }
 
 /**
+ * Get date range for "Last Month"
+ */
+export function getLastMonthRange(): DateRange {
+  const today = new Date();
+  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  lastMonth.setHours(0, 0, 0, 0);
+  
+  const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+  endOfLastMonth.setHours(23, 59, 59, 999);
+  
+  return {
+    fromDate: lastMonth.toISOString(),
+    toDate: endOfLastMonth.toISOString(),
+  };
+}
+
+/**
  * Get date range for "This Year"
  */
 export function getThisYearRange(): DateRange {
@@ -75,6 +92,25 @@ export function getThisYearRange(): DateRange {
   return {
     fromDate: startOfYear.toISOString(),
     toDate: endOfYear.toISOString(),
+  };
+}
+
+/**
+ * Get date range for "Last 2 Months" (default for Player Bets page)
+ * Returns data from 2 months ago to today
+ */
+export function getLastTwoMonthsRange(): DateRange {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  
+  const twoMonthsAgo = new Date(today);
+  twoMonthsAgo.setMonth(today.getMonth() - 2);
+  twoMonthsAgo.setDate(1); // First day of the month
+  twoMonthsAgo.setHours(0, 0, 0, 0);
+  
+  return {
+    fromDate: twoMonthsAgo.toISOString(),
+    toDate: today.toISOString(),
   };
 }
 

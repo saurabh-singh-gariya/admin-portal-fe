@@ -65,12 +65,17 @@ const generateDummyBets = (count: number): Bet[] => {
       ? new Date(betPlacedAt.getTime() + Math.random() * 5 * 60 * 1000) // Settled within 5 minutes
       : undefined;
     
+    const platforms = ['SPADE', 'EVOLUTION', 'PRAGMATIC'];
+    const games = ['ChickenRoad', 'LuckyWheel', 'DiceGame'];
+    
     return {
       id: `bet_${Date.now()}_${i}`,
       externalPlatformTxId: `tx_${Math.random().toString(36).substr(2, 9)}`,
       userId: users[Math.floor(Math.random() * users.length)],
       agentId: agents[Math.floor(Math.random() * agents.length)],
       roundId: `round_${i}`,
+      platform: platforms[Math.floor(Math.random() * platforms.length)],
+      game: games[Math.floor(Math.random() * games.length)],
       difficulty: difficulties[Math.floor(Math.random() * difficulties.length)],
       betAmount,
       winAmount,
@@ -101,19 +106,27 @@ export const useBetStore = create<BetState>((set, get) => ({
   fetchBets: async (filters?: BetFilters) => {
     set({ isLoading: true, error: null });
     
-    // TODO: Replace with actual API call when backend is ready
-    // Example API integration:
+    // TODO: Backend Integration
+    // Replace this dummy implementation with:
     // try {
-    //   const response = await apiService.getBets(filters);
-    //   set({
-    //     bets: response.data.bets,
-    //     pagination: response.data.pagination,
-    //     summary: response.data.summary, // Summary should be calculated on backend based on filters
-    //     filters: filters || {},
-    //     isLoading: false,
-    //   });
-    // } catch (error) {
-    //   set({ error: error.message, isLoading: false });
+    //   // Fetch bets data
+    //   const betsResponse = await apiService.getBets(filters);
+    //   // Fetch totals (calculated from ALL filtered records, not just current page)
+    //   const totalsResponse = await apiService.getBetTotals(filters);
+    //   
+    //   if (betsResponse.status === '0000' && totalsResponse.status === '0000') {
+    //     set({
+    //       bets: betsResponse.data.bets,
+    //       pagination: betsResponse.data.pagination,
+    //       summary: totalsResponse.data, // Totals from separate endpoint
+    //       filters: filters || {},
+    //       isLoading: false,
+    //     });
+    //   } else {
+    //     throw new Error(betsResponse.message || 'Failed to fetch bets');
+    //   }
+    // } catch (error: any) {
+    //   set({ error: error.message || 'Failed to fetch bets', isLoading: false });
     // }
     
     // Simulate API delay
@@ -137,6 +150,12 @@ export const useBetStore = create<BetState>((set, get) => ({
       }
       if (filters.currency) {
         filtered = filtered.filter(b => b.currency === filters.currency);
+      }
+      if (filters.platform) {
+        filtered = filtered.filter(b => b.platform === filters.platform);
+      }
+      if (filters.game) {
+        filtered = filtered.filter(b => b.game === filters.game);
       }
       
       // Date range filtering
@@ -200,6 +219,7 @@ export const useBetStore = create<BetState>((set, get) => ({
   },
 
   fetchStatistics: async (filters?: BetFilters) => {
+    // Statistics are included in fetchBets response (totals)
     await get().fetchBets(filters);
   },
 }));

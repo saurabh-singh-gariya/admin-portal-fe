@@ -73,7 +73,7 @@ export default function BetDetailsPage() {
               <p className="text-lg font-semibold text-gray-900">{selectedBet.id}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">User ID</label>
+              <label className="text-sm font-medium text-gray-500">Player ID</label>
               <p className="text-lg font-semibold text-gray-900">{selectedBet.userId}</p>
             </div>
             <div>

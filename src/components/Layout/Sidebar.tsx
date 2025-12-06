@@ -9,14 +9,16 @@ import {
   Building2,
   Settings,
   LogOut,
+  UserCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },
-  { path: '/users', label: 'Users', icon: Users, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },
-  { path: '/bets', label: 'Bet History', icon: Receipt, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },
-  { path: '/agents', label: 'Agents', icon: Building2, roles: [AdminRole.SUPER_ADMIN] },
+  { path: '/users', label: 'Users', icon: Users, roles: [AdminRole.AGENT] },
+  { path: '/bets', label: 'Player Bets', icon: Receipt, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },
+  { path: '/agents', label: 'Agent Statistics', icon: Building2, roles: [AdminRole.SUPER_ADMIN] },
+  { path: '/player-summary', label: 'Player Summary', icon: UserCheck, roles: [AdminRole.SUPER_ADMIN] },
   { path: '/config', label: 'Game Config', icon: Settings, roles: [AdminRole.SUPER_ADMIN] },
 ];
 

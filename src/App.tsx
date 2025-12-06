@@ -9,6 +9,7 @@ import BetsPage from './pages/BetsPage';
 import BetDetailsPage from './pages/BetDetailsPage';
 import AgentsPage from './pages/AgentsPage';
 import AgentFormPage from './pages/AgentFormPage';
+import PlayerSummaryPage from './pages/PlayerSummaryPage';
 import ConfigPage from './pages/ConfigPage';
 import ConfigFormPage from './pages/ConfigFormPage';
 import AppLayout from './components/Layout/AppLayout';
@@ -38,7 +39,7 @@ function App() {
         <Route
           path="/users"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole={AdminRole.AGENT}>
               <AppLayout>
                 <UsersPage />
               </AppLayout>
@@ -111,6 +112,16 @@ function App() {
             <ProtectedRoute requiredRole={AdminRole.SUPER_ADMIN}>
               <AppLayout>
                 <AgentFormPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/player-summary"
+          element={
+            <ProtectedRoute requiredRole={AdminRole.SUPER_ADMIN}>
+              <AppLayout>
+                <PlayerSummaryPage />
               </AppLayout>
             </ProtectedRoute>
           }

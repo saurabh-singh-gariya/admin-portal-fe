@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      title: 'Total Users',
+      title: 'Total Players',
       value: stats?.totalUsers || 0,
       icon: Users,
       color: 'from-blue-500 to-blue-600',
@@ -193,7 +193,7 @@ export default function DashboardPage() {
         >
           <div className="flex items-center gap-3 mb-4">
             <Activity className="text-primary-500" size={24} />
-            <h3 className="text-lg font-semibold">Active Users</h3>
+            <h3 className="text-lg font-semibold">Active Players</h3>
           </div>
           <p className="text-3xl font-bold text-gray-900">{stats?.activeUsers || 0}</p>
           <p className="text-sm text-gray-500 mt-2">Currently online</p>
