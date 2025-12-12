@@ -2,6 +2,23 @@ import { create } from 'zustand';
 import { Agent, AgentWithStats, Pagination, AgentFilters, AgentTotals } from '../types';
 import apiService from '../services/api.service';
 
+interface AgentState {
+  agents: AgentWithStats[];
+  selectedAgent: Agent | null;
+  pagination: Pagination;
+  filters: AgentFilters;
+  totals: AgentTotals | null;
+  isLoading: boolean;
+  error: string | null;
+  
+  fetchAgents: (filters?: AgentFilters) => Promise<void>;
+  fetchAgentTotals: (filters?: AgentFilters) => Promise<void>;
+  fetchAgent: (agentId: string) => Promise<void>;
+  createAgent: (data: Partial<Agent>) => Promise<void>;
+  updateAgent: (agentId: string, data: Partial<Agent>) => Promise<void>;
+  deleteAgent: (agentId: string) => Promise<void>;
+}
+
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: [],
   selectedAgent: null,

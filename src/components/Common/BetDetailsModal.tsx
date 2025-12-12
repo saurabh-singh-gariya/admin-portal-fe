@@ -23,7 +23,6 @@ export default function BetDetailsModal({ betId, isOpen, onClose }: BetDetailsMo
 
   const getStatusBadge = (status: string) => {
     // Handle both enum values and string values
-    const statusKey = status as BetStatus;
     const styles: Record<string, string> = {
       [BetStatus.PLACED]: 'badge-warning',
       [BetStatus.PENDING_SETTLEMENT]: 'badge-warning',
@@ -32,17 +31,9 @@ export default function BetDetailsModal({ betId, isOpen, onClose }: BetDetailsMo
       [BetStatus.CANCELLED]: 'badge-info',
       [BetStatus.REFUNDED]: 'badge-info',
       [BetStatus.SETTLEMENT_FAILED]: 'badge-warning',
-      // Fallback for string values
-      'PLACED': 'badge-warning',
-      'PENDING_SETTLEMENT': 'badge-warning',
-      'WON': 'badge-success',
-      'LOST': 'badge-danger',
-      'CANCELLED': 'badge-info',
-      'REFUNDED': 'badge-info',
-      'SETTLEMENT_FAILED': 'badge-warning',
     };
     
-    const badgeClass = styles[statusKey] || styles[status] || 'badge-secondary';
+    const badgeClass = styles[status] || 'badge-secondary';
     // Format status for display (replace underscores with spaces, capitalize)
     const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     

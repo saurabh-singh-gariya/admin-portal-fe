@@ -177,6 +177,11 @@ export default function AgentEditModal({ agent, isOpen, onClose, onSuccess, mode
   };
 
   const handleDelete = async () => {
+    if (!agent) {
+      setError('Agent not found');
+      return;
+    }
+
     setIsDeleting(true);
     setError(null);
 
