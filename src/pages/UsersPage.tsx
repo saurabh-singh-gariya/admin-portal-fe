@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
-import { Search, Plus, Eye, Edit, Trash2, Filter } from 'lucide-react';
+import { Search, Plus, Eye, Edit, Trash2, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import Pagination from '../components/Common/Pagination';
@@ -15,6 +15,8 @@ export default function UsersPage() {
   const [search, setSearch] = useState(filters.search || '');
   const [showFilters, setShowFilters] = useState(false);
   const [localFilters, setLocalFilters] = useState<UserFilters>(filters);
+  // Mobile accordion state for filters
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -59,36 +61,54 @@ export default function UsersPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="card">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              id="search-users"
-              name="search-users"
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search by user ID or username..."
-              className="input pl-10"
-            />
+      <div className="bg-gray-50 rounded-lg border border-gray-200">
+        {/* Mobile: Accordion Header */}
+        <button
+          onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+          className="md:hidden w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-gray-600" />
+            <span className="font-medium text-gray-900">Filters</span>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <Filter size={20} />
-            Filters
-          </button>
-        </div>
+          {isFiltersOpen ? (
+            <ChevronUp size={20} className="text-gray-600" />
+          ) : (
+            <ChevronDown size={20} className="text-gray-600" />
+          )}
+        </button>
 
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4"
-          >
+        {/* Filters Content - Hidden on mobile when collapsed, always visible on desktop */}
+        <div className={`${isFiltersOpen ? 'block' : 'hidden'} md:block p-4`}>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                id="search-users"
+                name="search-users"
+                value={search}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search by user ID or username..."
+                className="input pl-10"
+              />
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Filter size={20} />
+              Filters
+            </button>
+          </div>
+
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
             {admin?.role === 'SUPER_ADMIN' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Agent ID</label>
@@ -117,7 +137,8 @@ export default function UsersPage() {
               </select>
             </div>
           </motion.div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Users Table */}
@@ -132,27 +153,27 @@ export default function UsersPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       User ID
                     </th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Username
                     </th>
                     {admin?.role === 'SUPER_ADMIN' && (
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                         Agent ID
                       </th>
                     )}
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Currency
                     </th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Bet Limit
                     </th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Created
                     </th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
@@ -166,26 +187,23 @@ export default function UsersPage() {
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                        <div className="flex flex-col">
-                          <span>{user.userId}</span>
-                          <span className="text-xs text-gray-500 sm:hidden mt-1">{user.username || '-'}</span>
-                        </div>
+                        {user.userId}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {user.username || '-'}
                       </td>
                       {admin?.role === 'SUPER_ADMIN' && (
-                        <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden md:table-cell">
+                        <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                           {user.agentId}
                         </td>
                       )}
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {user.currency}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden md:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {formatCurrency(user.betLimit, user.currency)}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {formatDate(user.createdAt)}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">

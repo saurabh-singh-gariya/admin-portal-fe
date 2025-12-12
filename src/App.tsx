@@ -6,8 +6,8 @@ import UsersPage from './pages/UsersPage';
 import UserDetailsPage from './pages/UserDetailsPage';
 import UserFormPage from './pages/UserFormPage';
 import BetsPage from './pages/BetsPage';
-import BetDetailsPage from './pages/BetDetailsPage';
 import AgentsPage from './pages/AgentsPage';
+import AgentsListPage from './pages/AgentsListPage';
 import AgentFormPage from './pages/AgentFormPage';
 import PlayerSummaryPage from './pages/PlayerSummaryPage';
 import ConfigPage from './pages/ConfigPage';
@@ -77,21 +77,21 @@ function App() {
           }
         />
         <Route
-          path="/bets/:betId"
+          path="/agents/stats"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole={AdminRole.SUPER_ADMIN}>
               <AppLayout>
-                <BetDetailsPage />
+                <AgentsPage />
               </AppLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/agents"
+          path="/agents/list"
           element={
             <ProtectedRoute requiredRole={AdminRole.SUPER_ADMIN}>
               <AppLayout>
-                <AgentsPage />
+                <AgentsListPage />
               </AppLayout>
             </ProtectedRoute>
           }

@@ -39,14 +39,32 @@ export default function BetDetailsPage() {
     );
   }
 
-  const getStatusBadge = (status: BetStatus) => {
-    const styles = {
+  const getStatusBadge = (status: string) => {
+    // Handle both enum values and string values
+    const statusKey = status as BetStatus;
+    const styles: Record<string, string> = {
+      [BetStatus.PLACED]: 'badge-warning',
+      [BetStatus.PENDING_SETTLEMENT]: 'badge-warning',
       [BetStatus.WON]: 'badge-success',
       [BetStatus.LOST]: 'badge-danger',
-      [BetStatus.PENDING]: 'badge-warning',
       [BetStatus.CANCELLED]: 'badge-info',
+      [BetStatus.REFUNDED]: 'badge-info',
+      [BetStatus.SETTLEMENT_FAILED]: 'badge-warning',
+      // Fallback for string values
+      'PLACED': 'badge-warning',
+      'PENDING_SETTLEMENT': 'badge-warning',
+      'WON': 'badge-success',
+      'LOST': 'badge-danger',
+      'CANCELLED': 'badge-info',
+      'REFUNDED': 'badge-info',
+      'SETTLEMENT_FAILED': 'badge-warning',
     };
-    return <span className={`badge ${styles[status]}`}>{status}</span>;
+    
+    const badgeClass = styles[statusKey] || styles[status] || 'badge-secondary';
+    // Format status for display (replace underscores with spaces, capitalize)
+    const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    return <span className={`badge ${badgeClass}`}>{displayStatus}</span>;
   };
 
   return (

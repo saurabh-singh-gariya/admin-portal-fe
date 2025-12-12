@@ -9,21 +9,50 @@ import { BetFilters, AgentFilters, PlayerSummaryFilters } from '../types';
 
 /**
  * Build query parameters from BetFilters
- * Removes undefined/null values and formats dates properly
+ * Removes undefined/null/empty string values and formats dates properly
+ * Following bet practices: All filtering is done on the backend for performance
  */
 export function buildBetQueryParams(filters: BetFilters): Record<string, string> {
   const params: Record<string, string> = {};
 
-  if (filters.page) params.page = filters.page.toString();
-  if (filters.userId) params.userId = filters.userId;
-  if (filters.agentId) params.agentId = filters.agentId;
-  if (filters.platform) params.platform = filters.platform;
-  if (filters.game) params.game = filters.game;
-  if (filters.status) params.status = filters.status;
-  if (filters.difficulty) params.difficulty = filters.difficulty;
-  if (filters.currency) params.currency = filters.currency;
-  if (filters.fromDate) params.fromDate = filters.fromDate;
-  if (filters.toDate) params.toDate = filters.toDate;
+  // Pagination
+  if (filters.page !== undefined && filters.page !== null) {
+    params.page = filters.page.toString();
+  }
+  if (filters.limit !== undefined && filters.limit !== null) {
+    params.limit = filters.limit.toString();
+  }
+
+  // Filters (only include if they have non-empty values)
+  if (filters.userId && filters.userId.trim() !== '') {
+    params.userId = filters.userId.trim();
+  }
+  if (filters.agentId && filters.agentId.trim() !== '') {
+    params.agentId = filters.agentId.trim();
+  }
+  if (filters.platform && filters.platform.trim() !== '') {
+    params.platform = filters.platform.trim();
+  }
+  if (filters.game && filters.game.trim() !== '') {
+    params.game = filters.game.trim();
+  }
+  if (filters.status && filters.status.trim() !== '') {
+    params.status = filters.status.trim();
+  }
+  if (filters.difficulty && filters.difficulty.trim() !== '') {
+    params.difficulty = filters.difficulty.trim();
+  }
+  if (filters.currency && filters.currency.trim() !== '') {
+    params.currency = filters.currency.trim();
+  }
+  
+  // Date range (required by backend - should always be set by frontend)
+  if (filters.fromDate) {
+    params.fromDate = filters.fromDate;
+  }
+  if (filters.toDate) {
+    params.toDate = filters.toDate;
+  }
 
   return params;
 }
@@ -34,12 +63,32 @@ export function buildBetQueryParams(filters: BetFilters): Record<string, string>
 export function buildAgentQueryParams(filters: AgentFilters): Record<string, string> {
   const params: Record<string, string> = {};
 
-  if (filters.page) params.page = filters.page.toString();
-  if (filters.agentId) params.agentId = filters.agentId;
-  if (filters.platform) params.platform = filters.platform;
-  if (filters.game) params.game = filters.game;
-  if (filters.fromDate) params.fromDate = filters.fromDate;
-  if (filters.toDate) params.toDate = filters.toDate;
+  // Pagination
+  if (filters.page !== undefined && filters.page !== null) {
+    params.page = filters.page.toString();
+  }
+  if (filters.limit !== undefined && filters.limit !== null) {
+    params.limit = filters.limit.toString();
+  }
+
+  // Filters (only include if they have non-empty values)
+  if (filters.agentId && filters.agentId.trim() !== '') {
+    params.agentId = filters.agentId.trim();
+  }
+  if (filters.platform && filters.platform.trim() !== '') {
+    params.platform = filters.platform.trim();
+  }
+  if (filters.game && filters.game.trim() !== '') {
+    params.game = filters.game.trim();
+  }
+  
+  // Date range (required by backend - should always be set by frontend)
+  if (filters.fromDate) {
+    params.fromDate = filters.fromDate;
+  }
+  if (filters.toDate) {
+    params.toDate = filters.toDate;
+  }
 
   return params;
 }
@@ -50,13 +99,35 @@ export function buildAgentQueryParams(filters: AgentFilters): Record<string, str
 export function buildPlayerSummaryQueryParams(filters: PlayerSummaryFilters): Record<string, string> {
   const params: Record<string, string> = {};
 
-  if (filters.page) params.page = filters.page.toString();
-  if (filters.playerId) params.playerId = filters.playerId;
-  if (filters.platform) params.platform = filters.platform;
-  if (filters.game) params.game = filters.game;
-  if (filters.agentId) params.agentId = filters.agentId;
-  if (filters.fromDate) params.fromDate = filters.fromDate;
-  if (filters.toDate) params.toDate = filters.toDate;
+  // Pagination
+  if (filters.page !== undefined && filters.page !== null) {
+    params.page = filters.page.toString();
+  }
+  if (filters.limit !== undefined && filters.limit !== null) {
+    params.limit = filters.limit.toString();
+  }
+
+  // Filters (only include if they have non-empty values)
+  if (filters.playerId && filters.playerId.trim() !== '') {
+    params.playerId = filters.playerId.trim();
+  }
+  if (filters.platform && filters.platform.trim() !== '') {
+    params.platform = filters.platform.trim();
+  }
+  if (filters.game && filters.game.trim() !== '') {
+    params.game = filters.game.trim();
+  }
+  if (filters.agentId && filters.agentId.trim() !== '') {
+    params.agentId = filters.agentId.trim();
+  }
+  
+  // Date range (required by backend - should always be set by frontend)
+  if (filters.fromDate) {
+    params.fromDate = filters.fromDate;
+  }
+  if (filters.toDate) {
+    params.toDate = filters.toDate;
+  }
 
   return params;
 }

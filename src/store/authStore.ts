@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Admin, AdminRole } from '../types';
+import apiService from '../services/api.service';
 
 interface AuthState {
   admin: Admin | null;
@@ -8,30 +9,12 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  error: string | null;
   
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
-
-// Dummy admin data
-const dummyAdmins: Record<string, Admin> = {
-  'superadmin': {
-    id: '1',
-    username: 'superadmin',
-    role: AdminRole.SUPER_ADMIN,
-    email: 'superadmin@example.com',
-    fullName: 'Super Admin',
-  },
-  'agentadmin': {
-    id: '2',
-    username: 'agentadmin',
-    role: AdminRole.AGENT,
-    agentId: 'agent001',
-    email: 'agent@example.com',
-    fullName: 'Agent Admin',
-  },
-};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -41,40 +24,97 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
+      error: null,
 
-      login: async (username: string, _password: string) => {
-        set({ isLoading: true });
+      login: async (username: string, password: string) => {
+        set({ isLoading: true, error: null });
         
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Dummy authentication - accept any password
-        const admin = dummyAdmins[username.toLowerCase()] || dummyAdmins['superadmin'];
-        const token = `dummy_token_${Date.now()}`;
+        try {
+          const response = await apiService.login(username, password);
+          
+          if (response.status === '0000') {
+            const adminData = response.admin;
+            const admin: Admin = {
+              id: adminData.id,
+              username: adminData.username,
+              role: adminData.role === 'SUPER_ADMIN' ? AdminRole.SUPER_ADMIN : AdminRole.AGENT,
+              agentId: adminData.agentId || undefined,
+            };
         
         set({
           admin,
-          accessToken: token,
-          refreshToken: `refresh_${token}`,
+              accessToken: response.accessToken,
+              refreshToken: response.refreshToken,
           isAuthenticated: true,
           isLoading: false,
+              error: null,
         });
+          } else {
+            throw new Error(response.message || 'Login failed');
+          }
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.message || error.message || 'Invalid username or password';
+          set({
+            admin: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: errorMessage,
+          });
+          throw new Error(errorMessage);
+        }
       },
 
-      logout: () => {
+      logout: async () => {
+        try {
+          // Call logout API if token exists
+          const state = useAuthStore.getState();
+          if (state.accessToken) {
+            await apiService.logout();
+          }
+        } catch (error) {
+          // Ignore logout errors - clear state anyway
+        } finally {
         set({
           admin: null,
           accessToken: null,
           refreshToken: null,
           isAuthenticated: false,
+            error: null,
         });
+        }
       },
 
       checkAuth: async () => {
-        // Check if token exists (dummy check)
         const state = useAuthStore.getState();
         if (state.accessToken) {
-          set({ isAuthenticated: true });
+          try {
+            // Verify token is still valid by calling /me endpoint
+            const response = await apiService.getCurrentAdmin();
+            if (response.status === '0000') {
+              const adminData = response.data;
+              const admin: Admin = {
+                id: adminData.id,
+                username: adminData.username,
+                role: adminData.role === 'SUPER_ADMIN' ? AdminRole.SUPER_ADMIN : AdminRole.AGENT,
+                agentId: adminData.agentId || undefined,
+              };
+              set({ admin, isAuthenticated: true });
+            } else {
+              set({ isAuthenticated: false });
+            }
+          } catch (error) {
+            // Token invalid - clear auth
+            set({
+              admin: null,
+              accessToken: null,
+              refreshToken: null,
+              isAuthenticated: false,
+            });
+          }
+        } else {
+          set({ isAuthenticated: false });
         }
       },
     }),

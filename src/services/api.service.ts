@@ -11,19 +11,29 @@
  * - Type-safe API responses
  */
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { BetFilters, UserFilters, AgentFilters, PlayerSummaryFilters } from '../types';
 import { buildBetQueryParams, buildAgentQueryParams, buildPlayerSummaryQueryParams } from '../utils/queryBuilder';
 
-// TODO: Set this from environment variables
+// Set this from environment variables
 const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL as string) || 'http://localhost:3000';
 const ADMIN_API_PREFIX = '/admin/api/v1';
 
 class ApiService {
   private client: AxiosInstance;
+  private authClient: AxiosInstance; // Separate client for auth endpoints (no token needed)
 
   constructor() {
+    // Main API client (requires auth token)
     this.client = axios.create({
+      baseURL: `${API_BASE_URL}${ADMIN_API_PREFIX}`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Auth client (no token needed for login/refresh)
+    this.authClient = axios.create({
       baseURL: `${API_BASE_URL}${ADMIN_API_PREFIX}`,
       headers: {
         'Content-Type': 'application/json',
@@ -33,11 +43,19 @@ class ApiService {
     // Request interceptor - Add auth token
     this.client.interceptors.request.use(
       (config) => {
-        // TODO: Get token from auth store
-        // const token = useAuthStore.getState().accessToken;
-        // if (token) {
-        //   config.headers.Authorization = `Bearer ${token}`;
-        // }
+        // Get token from localStorage (set by authStore)
+        const authData = localStorage.getItem('admin-auth-storage');
+        if (authData) {
+          try {
+            const parsed = JSON.parse(authData);
+            const token = parsed.state?.accessToken;
+            if (token) {
+              config.headers.Authorization = `Bearer ${token}`;
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
         return config;
       },
       (error) => Promise.reject(error)
@@ -47,20 +65,27 @@ class ApiService {
     this.client.interceptors.response.use(
       (response) => {
         // Standardize response format
-        // Backend should return: { status: '0000', data: {...} }
+        // Backend returns: { status: '0000', data: {...} }
         return response;
       },
-      async (error) => {
-        // TODO: Backend Integration - Error handling
-        // if (error.response?.status === 401) {
-        //   // Token expired - try to refresh
-        //   // const refreshToken = useAuthStore.getState().refreshToken;
-        //   // await apiService.refreshToken(refreshToken);
-        //   // Retry original request
-        // } else if (error.response?.status === 403) {
-        //   // Unauthorized - redirect to login
-        //   // window.location.href = '/';
-        // }
+      async (error: AxiosError) => {
+        if (error.response?.status === 401) {
+          // Token expired or invalid - clear auth and redirect to login
+          localStorage.removeItem('admin-auth-storage');
+          window.location.href = '/';
+        } else if (error.response?.status === 403) {
+          // Forbidden - user doesn't have permission
+          // Keep user logged in but show error
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Auth client response interceptor
+    this.authClient.interceptors.response.use(
+      (response) => response,
+      async (error: AxiosError) => {
+        // Handle auth-specific errors
         return Promise.reject(error);
       }
     );
@@ -68,44 +93,48 @@ class ApiService {
 
   // ==================== Authentication ====================
   
-  async login(_username: string, _password: string) {
-    // TODO: Implement
-    // return this.client.post('/auth/login', { username, password });
+  async login(username: string, password: string) {
+    const response = await this.authClient.post('/auth/login', { username, password });
+    return response.data;
   }
 
   async logout() {
-    // TODO: Implement
-    // return this.client.post('/auth/logout');
+    const response = await this.client.post('/auth/logout');
+    return response.data;
   }
 
-  async refreshToken(_refreshToken: string) {
-    // TODO: Implement
-    // return this.client.post('/auth/refresh', { refreshToken });
+  async refreshToken(refreshToken: string) {
+    const response = await this.authClient.post('/auth/refresh', { refreshToken });
+    return response.data;
+  }
+
+  async getCurrentAdmin() {
+    const response = await this.client.get('/auth/me');
+    return response.data;
   }
 
   // ==================== Bets ====================
   
   async getBets(filters?: BetFilters) {
-    // TODO: Replace with actual API call when backend is ready
-    // const params = buildBetQueryParams(filters || {});
-    // const response = await this.client.get('/bets', { params });
-    // return response.data;
-    // Expected response: { status: '0000', data: { bets: [], pagination: {}, totals: {} } }
-    throw new Error('Not implemented - backend integration needed');
+    const params = buildBetQueryParams(filters || {});
+    const response = await this.client.get('/bets', { params });
+    return response.data;
   }
 
   async getBetTotals(filters?: BetFilters) {
-    // TODO: Replace with actual API call when backend is ready
-    // const params = buildBetQueryParams(filters || {});
-    // const response = await this.client.get('/bets/totals', { params });
-    // return response.data;
-    // Expected response: { status: '0000', data: { totalBets, totalBetAmount, totalWinAmount, netRevenue } }
-    throw new Error('Not implemented - backend integration needed');
+    const params = buildBetQueryParams(filters || {});
+    const response = await this.client.get('/bets/totals', { params });
+    return response.data;
   }
 
-  async getBet(_betId: string) {
-    // TODO: Implement
-    // return this.client.get(`/bets/${betId}`);
+  async getBet(betId: string) {
+    const response = await this.client.get(`/bets/${betId}`);
+    return response.data;
+  }
+
+  async getBetFilterOptions() {
+    const response = await this.client.get('/bets/filter-options');
+    return response.data;
   }
 
   // ==================== Users ====================
@@ -139,61 +168,72 @@ class ApiService {
   // ==================== Agents ====================
   
   async getAgents(filters?: AgentFilters) {
-    // TODO: Replace with actual API call when backend is ready
-    // const params = buildAgentQueryParams(filters || {});
-    // const response = await this.client.get('/agents', { params });
-    // return response.data;
-    // Expected response: { status: '0000', data: { agents: [], pagination: {}, totals: {} } }
-    throw new Error('Not implemented - backend integration needed');
+    const params = buildAgentQueryParams(filters || {});
+    const response = await this.client.get('/agents', { params });
+    return response.data;
   }
 
   async getAgentTotals(filters?: AgentFilters) {
-    // TODO: Replace with actual API call when backend is ready
-    // const params = buildAgentQueryParams(filters || {});
-    // const response = await this.client.get('/agents/totals', { params });
-    // return response.data;
-    // Expected response: { status: '0000', data: { totalBetCount, totalBetAmount, totalWinLoss, totalMarginPercent, companyTotalWinLoss } }
-    throw new Error('Not implemented - backend integration needed');
+    const params = buildAgentQueryParams(filters || {});
+    const response = await this.client.get('/agents/totals', { params });
+    return response.data;
   }
 
-  async getAgent(_agentId: string) {
-    // TODO: Implement
-    // return this.client.get(`/agents/${agentId}`);
+  async getAgentFilterOptions() {
+    const response = await this.client.get('/agents/filter-options');
+    return response.data;
   }
 
-  async createAgent(_data: any) {
-    // TODO: Implement
-    // return this.client.post('/agents', data);
+  // Agent Management APIs (for agent list page)
+  async getAllAgents() {
+    const response = await this.client.get('/agents/list');
+    return response.data;
   }
 
-  async updateAgent(_agentId: string, _data: any) {
-    // TODO: Implement
-    // return this.client.patch(`/agents/${agentId}`, data);
+  async getAgent(agentId: string) {
+    const response = await this.client.get(`/agents/list/${agentId}`);
+    return response.data;
   }
 
-  async deleteAgent(_agentId: string) {
-    // TODO: Implement
-    // return this.client.delete(`/agents/${agentId}`);
+  async createAgent(data: any) {
+    const response = await this.client.post('/agents/list', data);
+    return response.data;
+  }
+
+  async updateAgent(agentId: string, data: any) {
+    const response = await this.client.patch(`/agents/list/${agentId}`, data);
+    return response.data;
+  }
+
+  async deleteAgent(agentId: string) {
+    const response = await this.client.delete(`/agents/list/${agentId}`);
+    return response.data;
+  }
+
+  // Games API
+  async getActiveGames() {
+    // Use the public API endpoint for games
+    const response = await axios.get(`${API_BASE_URL}/api/games`);
+    return response.data;
   }
 
   // ==================== Player Summary ====================
   
   async getPlayerSummary(filters?: PlayerSummaryFilters) {
-    // TODO: Replace with actual API call when backend is ready
-    // const params = buildPlayerSummaryQueryParams(filters || {});
-    // const response = await this.client.get('/player-summary', { params });
-    // return response.data;
-    // Expected response: { status: '0000', data: { players: [], pagination: {}, totals: {} } }
-    throw new Error('Not implemented - backend integration needed');
+    const params = buildPlayerSummaryQueryParams(filters || {});
+    const response = await this.client.get('/player-summary', { params });
+    return response.data;
   }
 
   async getPlayerSummaryTotals(filters?: PlayerSummaryFilters) {
-    // TODO: Replace with actual API call when backend is ready
-    // const params = buildPlayerSummaryQueryParams(filters || {});
-    // const response = await this.client.get('/player-summary/totals', { params });
-    // return response.data;
-    // Expected response: { status: '0000', data: { totalPlayers, totalBetCount, totalBetAmount, totalPlayerWinLoss, totalWinLoss } }
-    throw new Error('Not implemented - backend integration needed');
+    const params = buildPlayerSummaryQueryParams(filters || {});
+    const response = await this.client.get('/player-summary/totals', { params });
+    return response.data;
+  }
+
+  async getPlayerSummaryFilterOptions() {
+    const response = await this.client.get('/player-summary/filter-options');
+    return response.data;
   }
 
   // ==================== Config ====================

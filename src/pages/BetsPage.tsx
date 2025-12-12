@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useBetStore } from '../store/betStore';
 import { useAuthStore } from '../store/authStore';
-import { Search, Eye, TrendingUp, Calendar, Filter, RotateCcw } from 'lucide-react';
+import { Search, Eye, TrendingUp, Calendar, Filter, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import Pagination from '../components/Common/Pagination';
+import BetDetailsModal from '../components/Common/BetDetailsModal';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { getLastTwoMonthsRange, getTodayRange, getThisWeekRange, getThisMonthRange, getLastMonthRange, formatDateForInput } from '../utils/dateFilters';
 import { BetFilters, BetStatus, Difficulty } from '../types';
+import apiService from '../services/api.service';
 
 // Helper to check if current filters match a specific date range
 const isDateRangeMatch = (filters: BetFilters, range: { fromDate: string; toDate: string }): boolean => {
@@ -21,9 +23,31 @@ const isDateRangeMatch = (filters: BetFilters, range: { fromDate: string; toDate
 };
 
 export default function BetsPage() {
-  const { bets, pagination, filters, summary, isLoading, fetchBets } = useBetStore();
+  const { bets, pagination, filters, summary, isLoading, error, fetchBets } = useBetStore();
   const { admin } = useAuthStore();
-  const [search, setSearch] = useState('');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Filter options from API
+  const [filterOptions, setFilterOptions] = useState<{
+    games: string[];
+    currencies: string[];
+    platforms: string[];
+    agentIds?: string[];
+  }>({
+    games: [],
+    currencies: [],
+    platforms: [],
+    agentIds: [],
+  });
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+  
+  // Mobile accordion state for filters
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  
+  // Bet details modal state
+  const [selectedBetId, setSelectedBetId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Initialize with "Last 2 Months" as default (as per design doc)
   const getDefaultFilters = (): BetFilters => {
@@ -31,6 +55,8 @@ export default function BetsPage() {
     return {
       fromDate: twoMonthsRange.fromDate,
       toDate: twoMonthsRange.toDate,
+      limit: 20, // Default records per page
+      page: 1, // Default page
     };
   };
   
@@ -39,11 +65,36 @@ export default function BetsPage() {
     return filters.fromDate && filters.toDate ? filters : getDefaultFilters();
   });
 
+  // Sync localFilters with store filters when they change (e.g., after applying filters)
+  useEffect(() => {
+    if (filters.fromDate && filters.toDate) {
+      setLocalFilters(filters);
+    }
+  }, [filters]);
+
+  // Fetch filter options on component mount
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      setIsLoadingOptions(true);
+      try {
+        const response = await apiService.getBetFilterOptions();
+        if (response.status === '0000') {
+          setFilterOptions(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch filter options:', error);
+        // Fallback to empty arrays - dropdowns will show fallback values
+      } finally {
+        setIsLoadingOptions(false);
+      }
+    };
+    fetchFilterOptions();
+  }, []);
+
   useEffect(() => {
     // On initial load, fetch with default "Last 2 Months" filter if no filters are set
     // If userId is in URL params (from Player Summary navigation), use it
-    const urlParams = new URLSearchParams(window.location.search);
-    const userIdFromUrl = urlParams.get('userId');
+    const userIdFromUrl = searchParams.get('userId');
     
     const initialFilters = filters.fromDate && filters.toDate ? filters : getDefaultFilters();
     if (!filters.fromDate || !filters.toDate) {
@@ -54,7 +105,6 @@ export default function BetsPage() {
     if (userIdFromUrl && !filters.userId) {
       const filtersWithUserId = { ...initialFilters, userId: userIdFromUrl };
       setLocalFilters(filtersWithUserId);
-      setSearch(userIdFromUrl);
       fetchBets(filtersWithUserId);
     } else {
       fetchBets(initialFilters);
@@ -64,7 +114,9 @@ export default function BetsPage() {
 
   // Handle filter changes (update local state only, don't call API)
   const handleFilterChange = (key: keyof BetFilters, value: string) => {
-    setLocalFilters({ ...localFilters, [key]: value || undefined });
+    // Convert empty strings to undefined to properly clear filters
+    const cleanValue = value && value.trim() !== '' ? value.trim() : undefined;
+    setLocalFilters({ ...localFilters, [key]: cleanValue });
   };
 
   // Handle date range changes (update local state only)
@@ -74,36 +126,93 @@ export default function BetsPage() {
 
   // Apply filters - called when Submit button is clicked
   const handleApplyFilters = () => {
-    const filtersToApply = { ...localFilters, page: 1 };
-    fetchBets(filtersToApply);
+    // Validate date range
+    if (localFilters.fromDate && localFilters.toDate) {
+      const fromDate = new Date(localFilters.fromDate);
+      const toDate = new Date(localFilters.toDate);
+      if (fromDate > toDate) {
+        alert('From date cannot be after To date. Please select a valid date range.');
+        return;
+      }
+    }
+
+    // Clean filters: remove empty strings and ensure required fields
+    const cleanedFilters: BetFilters = {
+      ...localFilters,
+      page: 1,
+      limit: localFilters.limit || 20, // Preserve limit or use default
+      // Remove empty string values
+      userId: localFilters.userId && localFilters.userId.trim() !== '' ? localFilters.userId.trim() : undefined,
+      agentId: localFilters.agentId && localFilters.agentId.trim() !== '' ? localFilters.agentId.trim() : undefined,
+      platform: localFilters.platform && localFilters.platform.trim() !== '' ? localFilters.platform.trim() : undefined,
+      game: localFilters.game && localFilters.game.trim() !== '' ? localFilters.game.trim() : undefined,
+      status: localFilters.status && localFilters.status.trim() !== '' ? (localFilters.status.trim() as BetStatus) : undefined,
+      difficulty: localFilters.difficulty && localFilters.difficulty.trim() !== '' ? (localFilters.difficulty.trim() as Difficulty) : undefined,
+      currency: localFilters.currency && localFilters.currency.trim() !== '' ? localFilters.currency.trim() : undefined,
+      // Ensure date range is set (required by backend)
+      fromDate: localFilters.fromDate || getLastTwoMonthsRange().fromDate,
+      toDate: localFilters.toDate || getLastTwoMonthsRange().toDate,
+    };
+    fetchBets(cleanedFilters);
   };
 
   // Reset filters to defaults
   const handleResetFilters = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const userIdFromUrl = urlParams.get('userId');
     const defaultFilters = getDefaultFilters();
-    const resetFilters = userIdFromUrl 
-      ? { ...defaultFilters, userId: userIdFromUrl }
-      : defaultFilters;
-    setLocalFilters(resetFilters);
-    setSearch(userIdFromUrl || '');
-    fetchBets(resetFilters);
+    
+    // Remove userId from URL params when resetting
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('userId');
+    setSearchParams(newSearchParams, { replace: true });
+    
+    setLocalFilters(defaultFilters);
+    fetchBets(defaultFilters);
   };
 
   // Handle page change (preserves current filters)
   const handlePageChange = (page: number) => {
-    fetchBets({ ...localFilters, page });
+    // Ensure date range is set when changing pages
+    const filtersToApply: BetFilters = {
+      ...localFilters,
+      page,
+      limit: localFilters.limit || 20,
+      fromDate: localFilters.fromDate || getLastTwoMonthsRange().fromDate,
+      toDate: localFilters.toDate || getLastTwoMonthsRange().toDate,
+    };
+    fetchBets(filtersToApply);
   };
 
-  const getStatusBadge = (status: BetStatus) => {
-    const styles = {
+  // Handle limit change (records per page)
+  const handleLimitChange = (limit: number) => {
+    const filtersToApply: BetFilters = {
+      ...localFilters,
+      limit,
+      page: 1, // Reset to first page when changing limit
+      fromDate: localFilters.fromDate || getLastTwoMonthsRange().fromDate,
+      toDate: localFilters.toDate || getLastTwoMonthsRange().toDate,
+    };
+    setLocalFilters(filtersToApply);
+    fetchBets(filtersToApply);
+  };
+
+  const getStatusBadge = (status: string) => {
+    // Handle both enum values and string values
+    const statusKey = status as BetStatus;
+    const styles: Record<string, string> = {
+      [BetStatus.PLACED]: 'badge-warning',
+      [BetStatus.PENDING_SETTLEMENT]: 'badge-warning',
       [BetStatus.WON]: 'badge-success',
       [BetStatus.LOST]: 'badge-danger',
-      [BetStatus.PENDING]: 'badge-warning',
       [BetStatus.CANCELLED]: 'badge-info',
+      [BetStatus.REFUNDED]: 'badge-info',
+      [BetStatus.SETTLEMENT_FAILED]: 'badge-warning',
     };
-    return <span className={`badge ${styles[status]}`}>{status}</span>;
+    
+    const badgeClass = styles[statusKey] || styles[status] || 'badge-secondary';
+    // Format status for display (replace underscores with spaces, capitalize)
+    const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    return <span className={`badge ${badgeClass}`}>{displayStatus}</span>;
   };
 
   const getDifficultyBadge = (difficulty: Difficulty) => {
@@ -114,6 +223,16 @@ export default function BetsPage() {
       [Difficulty.DAREDEVIL]: 'bg-red-100 text-red-800',
     };
     return <span className={`badge ${colors[difficulty]}`}>{difficulty}</span>;
+  };
+
+  const handleViewBet = (betId: string) => {
+    setSelectedBetId(betId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedBetId(null);
   };
 
   return (
@@ -175,12 +294,30 @@ export default function BetsPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-        <div className="flex flex-row gap-4 items-start">
+      <div className="bg-gray-50 rounded-lg border border-gray-200">
+        {/* Mobile: Accordion Header */}
+        <button
+          onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+          className="md:hidden w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-gray-600" />
+            <span className="font-medium text-gray-900">Filters</span>
+          </div>
+          {isFiltersOpen ? (
+            <ChevronUp size={20} className="text-gray-600" />
+          ) : (
+            <ChevronDown size={20} className="text-gray-600" />
+          )}
+        </button>
+
+        {/* Filters Content - Hidden on mobile when collapsed, always visible on desktop */}
+        <div className={`${isFiltersOpen ? 'block' : 'hidden'} md:block p-4`}>
+          <div className="flex flex-col md:flex-row gap-4 items-start">
           {/* Section 1: Date Filters (Left) */}
-          <div className="flex flex-col gap-2 flex-shrink-0">
+          <div className="flex flex-col gap-2 w-full md:flex-shrink-0 md:w-auto">
             {/* Calendar */}
-            <div className="flex items-center gap-2 w-full justify-between">
+            <div className="flex items-center gap-2 w-full">
               <Calendar className="text-gray-400 flex-shrink-0" size={16} />
               <input
                 type="date"
@@ -193,7 +330,7 @@ export default function BetsPage() {
                 }}
                 min={formatDateForInput(getLastTwoMonthsRange().fromDate)}
                 max={formatDateForInput(new Date().toISOString())}
-                className="w-32 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="flex-1 md:w-32 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <span className="text-xs text-gray-500">→</span>
               <input
@@ -207,15 +344,20 @@ export default function BetsPage() {
                 }}
                 min={formatDateForInput(getLastTwoMonthsRange().fromDate)}
                 max={formatDateForInput(new Date().toISOString())}
-                className="w-32 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="flex-1 md:w-32 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
             {/* Quick Filters */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
               <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Quick:</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
                 <button
-                  onClick={() => handleDateRangeChange(getTodayRange().fromDate, getTodayRange().toDate)}
+                  onClick={() => {
+                    const range = getTodayRange();
+                    handleDateRangeChange(range.fromDate, range.toDate);
+                    // Auto-apply quick date filters
+                    fetchBets({ ...localFilters, fromDate: range.fromDate, toDate: range.toDate, page: 1 });
+                  }}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                     isDateRangeMatch(localFilters, getTodayRange()) 
                       ? 'bg-primary-500 text-white shadow-sm' 
@@ -225,7 +367,12 @@ export default function BetsPage() {
                   Today
                 </button>
                 <button
-                  onClick={() => handleDateRangeChange(getThisWeekRange().fromDate, getThisWeekRange().toDate)}
+                  onClick={() => {
+                    const range = getThisWeekRange();
+                    handleDateRangeChange(range.fromDate, range.toDate);
+                    // Auto-apply quick date filters
+                    fetchBets({ ...localFilters, fromDate: range.fromDate, toDate: range.toDate, page: 1 });
+                  }}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                     isDateRangeMatch(localFilters, getThisWeekRange()) 
                       ? 'bg-primary-500 text-white shadow-sm' 
@@ -235,7 +382,12 @@ export default function BetsPage() {
                   This Week
                 </button>
                 <button
-                  onClick={() => handleDateRangeChange(getThisMonthRange().fromDate, getThisMonthRange().toDate)}
+                  onClick={() => {
+                    const range = getThisMonthRange();
+                    handleDateRangeChange(range.fromDate, range.toDate);
+                    // Auto-apply quick date filters
+                    fetchBets({ ...localFilters, fromDate: range.fromDate, toDate: range.toDate, page: 1 });
+                  }}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                     isDateRangeMatch(localFilters, getThisMonthRange()) 
                       ? 'bg-primary-500 text-white shadow-sm' 
@@ -245,7 +397,12 @@ export default function BetsPage() {
                   This Month
                 </button>
                 <button
-                  onClick={() => handleDateRangeChange(getLastMonthRange().fromDate, getLastMonthRange().toDate)}
+                  onClick={() => {
+                    const range = getLastMonthRange();
+                    handleDateRangeChange(range.fromDate, range.toDate);
+                    // Auto-apply quick date filters
+                    fetchBets({ ...localFilters, fromDate: range.fromDate, toDate: range.toDate, page: 1 });
+                  }}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                     isDateRangeMatch(localFilters, getLastMonthRange()) 
                       ? 'bg-primary-500 text-white shadow-sm' 
@@ -259,16 +416,15 @@ export default function BetsPage() {
           </div>
 
           {/* Section 2: Search Items (Middle) */}
-          <div className="flex flex-col gap-2 flex-1 min-w-0">
+          <div className="flex flex-col gap-2 w-full md:flex-1 md:min-w-0">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
               <input
                 type="text"
                 id="search-user-id"
                 name="search-user-id"
-                value={localFilters.userId || search}
+                value={localFilters.userId || ''}
                 onChange={(e) => {
-                  setSearch(e.target.value);
                   handleFilterChange('userId', e.target.value);
                 }}
                 placeholder="Player ID..."
@@ -297,18 +453,30 @@ export default function BetsPage() {
           </div>
 
           {/* Section 3: Dropdowns (Right) */}
-          <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full md:flex-1 md:min-w-0">
             <select
               id="filter-platform"
               name="filter-platform"
               value={localFilters.platform || ''}
               onChange={(e) => handleFilterChange('platform', e.target.value)}
               className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              disabled={isLoadingOptions}
             >
               <option value="">Platform</option>
+              {filterOptions.platforms.length > 0 ? (
+                filterOptions.platforms.map((platform) => (
+                  <option key={platform} value={platform}>
+                    {platform}
+                  </option>
+                ))
+              ) : (
+                // Fallback to hardcoded values if API hasn't loaded yet
+                <>
               <option value="SPADE">SPADE</option>
               <option value="EVOLUTION">EVOLUTION</option>
               <option value="PRAGMATIC">PRAGMATIC</option>
+                </>
+              )}
             </select>
             <select
               id="filter-game"
@@ -316,11 +484,23 @@ export default function BetsPage() {
               value={localFilters.game || ''}
               onChange={(e) => handleFilterChange('game', e.target.value)}
               className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              disabled={isLoadingOptions}
             >
               <option value="">Game</option>
+              {filterOptions.games.length > 0 ? (
+                filterOptions.games.map((game) => (
+                  <option key={game} value={game}>
+                    {game}
+                  </option>
+                ))
+              ) : (
+                // Fallback to hardcoded values if API hasn't loaded yet
+                <>
               <option value="ChickenRoad">ChickenRoad</option>
               <option value="LuckyWheel">LuckyWheel</option>
               <option value="DiceGame">DiceGame</option>
+                </>
+              )}
             </select>
             <select
               id="filter-status"
@@ -330,9 +510,15 @@ export default function BetsPage() {
               className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">Status</option>
-              {Object.values(BetStatus).map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
+              {Object.values(BetStatus).map((status) => {
+                // Format status for display (replace underscores with spaces, capitalize)
+                const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                return (
+                  <option key={status} value={status}>
+                    {displayStatus}
+                  </option>
+                );
+              })}
             </select>
             <select
               id="filter-difficulty"
@@ -352,31 +538,64 @@ export default function BetsPage() {
               value={localFilters.currency || ''}
               onChange={(e) => handleFilterChange('currency', e.target.value)}
               className="min-w-0 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              disabled={isLoadingOptions}
             >
               <option value="">Currency</option>
+              {filterOptions.currencies.length > 0 ? (
+                filterOptions.currencies.map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
+                  </option>
+                ))
+              ) : (
+                // Fallback to hardcoded values if API hasn't loaded yet
               <option value="INR">INR</option>
+              )}
             </select>
           </div>
         </div>
 
         {/* Submit and Reset Buttons */}
-        <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 w-full md:w-auto mt-4 pt-4 border-t border-gray-200">
           <button
             onClick={handleResetFilters}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
           >
             <RotateCcw size={16} />
             Reset
           </button>
           <button
             onClick={handleApplyFilters}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-500 rounded-md hover:bg-primary-600 transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-500 rounded-md hover:bg-primary-600 transition-colors shadow-sm"
           >
             <Filter size={16} />
             Apply Filters
           </button>
         </div>
+        </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Error:</span>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => fetchBets(localFilters)}
+              className="text-red-700 hover:text-red-900 underline text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Bets Table */}
       <div className="card p-0 overflow-hidden">
@@ -384,25 +603,41 @@ export default function BetsPage() {
           <div className="flex items-center justify-center h-64">
             <LoadingSpinner size="lg" />
           </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <p className="text-lg font-medium mb-2">Failed to load bets</p>
+            <p className="text-sm mb-4">{error}</p>
+            <button
+              onClick={() => fetchBets(localFilters)}
+              className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : bets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <p className="text-lg font-medium mb-2">No bets found</p>
+            <p className="text-sm">Try adjusting your filters or date range</p>
+          </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bet ID</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Player ID</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Bet ID</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Player ID</th>
                     {admin?.role === 'SUPER_ADMIN' && (
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Operator ID</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Operator ID</th>
                     )}
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Platform</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Game</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Win Amount</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Difficulty</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Date</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Platform</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Game</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Amount</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Win Amount</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Difficulty</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -414,58 +649,66 @@ export default function BetsPage() {
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                        <div className="flex flex-col">
-                          <span>{bet.id.slice(0, 12)}...</span>
-                          <span className="text-xs text-gray-500 sm:hidden mt-1">{bet.userId}</span>
-                        </div>
+                        {bet.id.slice(0, 12)}...
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {bet.userId}
                       </td>
                       {admin?.role === 'SUPER_ADMIN' && (
-                        <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden md:table-cell">
+                        <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                           {bet.operatorId || bet.agentId}
                         </td>
                       )}
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {bet.platform || '-'}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {bet.game || '-'}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
                         {formatCurrency(bet.betAmount, bet.currency)}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600 hidden lg:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
                         {bet.winAmount ? formatCurrency(bet.winAmount, bet.currency) : '-'}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm hidden md:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                         {getDifficultyBadge(bet.difficulty)}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                         {getStatusBadge(bet.status)}
                       </td>
-                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
+                      <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         {formatDate(bet.betPlacedAt)}
                       </td>
                       <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap text-right text-xs sm:text-sm">
-                        <Link
-                          to={`/bets/${bet.id}`}
+                        <button
+                          onClick={() => handleViewBet(bet.id)}
                           className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 min-h-[44px] sm:min-h-0 justify-end"
                         >
                           <Eye size={16} />
                           <span className="hidden sm:inline">View</span>
-                        </Link>
+                        </button>
                       </td>
                     </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <Pagination pagination={pagination} onPageChange={handlePageChange} />
+            <Pagination 
+              pagination={pagination} 
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+            />
           </>
         )}
       </div>
+
+      {/* Bet Details Modal */}
+      <BetDetailsModal
+        betId={selectedBetId}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

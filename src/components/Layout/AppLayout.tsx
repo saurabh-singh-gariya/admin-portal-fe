@@ -12,7 +12,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <MobileHeader />
       <Sidebar />
       <div className="lg:pl-64">
-        <main className="pt-16 lg:pt-0 p-3 sm:p-4 md:p-6 lg:p-8">
+        <main className="pt-20 sm:pt-24 md:pt-24 lg:pt-0 p-3 sm:p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>

@@ -1,29 +1,25 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { LogIn, Lock, User } from 'lucide-react';
+import { LogIn, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuthStore();
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
 
     try {
       await login(username, password);
       navigate('/dashboard');
-    } catch (err) {
-      setError('Invalid credentials. Try: superadmin or agentadmin');
-    } finally {
-      setIsLoading(false);
+    } catch (err: any) {
+      // Error is already set in the store
+      // The error will be displayed from the store's error state
     }
   };
 
@@ -75,15 +71,23 @@ export default function LoginPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   id="password-login"
                   name="password-login"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
-                  className="input pl-10"
+                  className="input pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
@@ -100,20 +104,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full btn-primary py-3 text-base font-semibold"
+              className="w-full btn-primary py-3 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</p>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p><strong>Super Admin:</strong> superadmin / any password</p>
-              <p><strong>Agent Admin:</strong> agentadmin / any password</p>
-            </div>
-          </div>
         </div>
       </motion.div>
     </div>
