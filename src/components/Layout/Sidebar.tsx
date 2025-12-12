@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },
   { path: '/users', label: 'Users', icon: Users, roles: [AdminRole.AGENT] },
-  { path: '/agents/stats', label: 'Agent Statistics', icon: Building2, roles: [AdminRole.SUPER_ADMIN] },
+  { path: '/agents/stats', label: 'Agent Statistics', icon: Building2, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },
   { path: '/agents/list', label: 'Agents Management', icon: Building2, roles: [AdminRole.SUPER_ADMIN] },
   { path: '/player-summary', label: 'Player Summary', icon: UserCheck, roles: [AdminRole.SUPER_ADMIN] },
   { path: '/bets', label: 'Player Bets', icon: Receipt, roles: [AdminRole.SUPER_ADMIN, AdminRole.AGENT] },

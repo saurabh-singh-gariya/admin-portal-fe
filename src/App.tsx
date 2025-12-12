@@ -79,7 +79,7 @@ function App() {
         <Route
           path="/agents/stats"
           element={
-            <ProtectedRoute requiredRole={AdminRole.SUPER_ADMIN}>
+            <ProtectedRoute requiredRole={[AdminRole.SUPER_ADMIN, AdminRole.AGENT]}>
               <AppLayout>
                 <AgentsPage />
               </AppLayout>

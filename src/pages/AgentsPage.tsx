@@ -1,21 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAgentStore } from '../store/agentStore';
+import { useAuthStore } from '../store/authStore';
 import { Plus, Edit, Users, Search, Calendar, Filter, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import Pagination from '../components/Common/Pagination';
 import { formatCurrency } from '../utils/formatters';
 import { getLastTwoMonthsRange, getTodayRange, getThisWeekRange, getThisMonthRange, getLastMonthRange, formatDateForInput } from '../utils/dateFilters';
-import { AgentFilters, AgentWithStats } from '../types';
+import { AgentFilters, AgentWithStats, AdminRole } from '../types';
 import apiService from '../services/api.service';
 
 export default function AgentsPage() {
   const { agents, pagination, filters, totals, isLoading, error, fetchAgents } = useAgentStore();
+  const { admin } = useAuthStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   // Mobile accordion state for filters
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  
+  // Check if current user is Agent Admin
+  const isAgentAdmin = admin?.role === AdminRole.AGENT;
+  const agentAdminId = isAgentAdmin ? (admin?.agentId || admin?.username) : null;
   
   // Filter options from API
   const [filterOptions, setFilterOptions] = useState<{
@@ -32,12 +38,19 @@ export default function AgentsPage() {
   // Initialize with last 2 months as default
   const getDefaultFilters = (): AgentFilters => {
     const twoMonthsRange = getLastTwoMonthsRange();
-    return {
+    const defaultFilters: AgentFilters = {
       fromDate: twoMonthsRange.fromDate,
       toDate: twoMonthsRange.toDate,
       limit: 20, // Default records per page
       page: 1, // Default page
     };
+    
+    // For Agent Admin, always set their agentId
+    if (isAgentAdmin && agentAdminId) {
+      defaultFilters.agentId = agentAdminId;
+    }
+    
+    return defaultFilters;
   };
   
   const [localFilters, setLocalFilters] = useState<AgentFilters>(() => {
@@ -79,8 +92,13 @@ export default function AgentsPage() {
       setLocalFilters(initialFilters);
     }
     
-    // If agentId is in URL, add it to filters
-    if (agentIdFromUrl && !filters.agentId) {
+    // For Agent Admin, always use their agentId (ignore URL params)
+    if (isAgentAdmin && agentAdminId) {
+      const filtersWithAgentId = { ...initialFilters, agentId: agentAdminId };
+      setLocalFilters(filtersWithAgentId);
+      fetchAgents(filtersWithAgentId);
+    } else if (agentIdFromUrl && !filters.agentId) {
+      // Super Admin: If agentId is in URL, add it to filters
       const filtersWithAgentId = { ...initialFilters, agentId: agentIdFromUrl };
       setLocalFilters(filtersWithAgentId);
       fetchAgents(filtersWithAgentId);
@@ -92,6 +110,10 @@ export default function AgentsPage() {
 
   // Handle filter changes (update local state only, don't call API)
   const handleFilterChange = (key: keyof AgentFilters, value: string) => {
+    // For Agent Admin, prevent changing agentId filter
+    if (isAgentAdmin && key === 'agentId') {
+      return; // Don't allow Agent Admin to change agentId
+    }
     setLocalFilters({ ...localFilters, [key]: value || undefined });
   };
 
@@ -109,20 +131,36 @@ export default function AgentsPage() {
       fromDate: localFilters.fromDate || getLastTwoMonthsRange().fromDate,
       toDate: localFilters.toDate || getLastTwoMonthsRange().toDate,
     };
+    
+    // For Agent Admin, always ensure agentId is set
+    if (isAgentAdmin && agentAdminId) {
+      filtersToApply.agentId = agentAdminId;
+    }
+    
     fetchAgents(filtersToApply);
   };
 
   // Reset filters to defaults
   const handleResetFilters = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const agentIdFromUrl = urlParams.get('agentId');
     const defaultFilters = getDefaultFilters();
-    const resetFilters = agentIdFromUrl 
-      ? { ...defaultFilters, agentId: agentIdFromUrl }
-      : defaultFilters;
-    setLocalFilters(resetFilters);
-    setSearch(agentIdFromUrl || '');
-    fetchAgents(resetFilters);
+    
+    // For Agent Admin, always use their agentId (ignore URL params)
+    if (isAgentAdmin && agentAdminId) {
+      defaultFilters.agentId = agentAdminId;
+      setLocalFilters(defaultFilters);
+      setSearch(agentAdminId);
+      fetchAgents(defaultFilters);
+    } else {
+      // Super Admin: Check URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const agentIdFromUrl = urlParams.get('agentId');
+      const resetFilters = agentIdFromUrl 
+        ? { ...defaultFilters, agentId: agentIdFromUrl }
+        : defaultFilters;
+      setLocalFilters(resetFilters);
+      setSearch(agentIdFromUrl || '');
+      fetchAgents(resetFilters);
+    }
   };
 
   // Handle page change (preserves current filters)
@@ -331,29 +369,31 @@ export default function AgentsPage() {
             </div>
           </div>
 
-          {/* Section 2: Search Items (Middle) */}
-          <div className="flex flex-col gap-2 w-full md:flex-1 md:min-w-0">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-              <input
-                type="text"
-                id="search-agent-id"
-                name="search-agent-id"
-                value={localFilters.agentId || search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  handleFilterChange('agentId', e.target.value);
-                }}
-                placeholder="Agent ID..."
-                className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleApplyFilters();
-                  }
-                }}
-              />
+          {/* Section 2: Search Items (Middle) - Hidden for Agent Admins */}
+          {!isAgentAdmin && (
+            <div className="flex flex-col gap-2 w-full md:flex-1 md:min-w-0">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+                <input
+                  type="text"
+                  id="search-agent-id"
+                  name="search-agent-id"
+                  value={localFilters.agentId || search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    handleFilterChange('agentId', e.target.value);
+                  }}
+                  placeholder="Agent ID..."
+                  className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleApplyFilters();
+                    }
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Section 3: Dropdowns (Right) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full md:flex-1 md:min-w-0">
