@@ -4,10 +4,13 @@ import { Pagination as PaginationType } from '../../types';
 interface PaginationProps {
   pagination: PaginationType;
   onPageChange: (page: number) => void;
+  onLimitChange?: (limit: number) => void;
 }
 
-export default function Pagination({ pagination, onPageChange }: PaginationProps) {
-  const { page, totalPages } = pagination;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+export default function Pagination({ pagination, onPageChange, onLimitChange }: PaginationProps) {
+  const { page, totalPages, limit, total } = pagination;
 
   if (totalPages <= 1) return null;
 
@@ -35,11 +38,33 @@ export default function Pagination({ pagination, onPageChange }: PaginationProps
         </button>
       </div>
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <div>
+        <div className="flex items-center gap-4">
           <p className="text-sm text-gray-700">
             Page <span className="font-medium">{page}</span> of{' '}
             <span className="font-medium">{totalPages}</span>
+            {total !== undefined && (
+              <> ({total} total)</>
+            )}
           </p>
+          {onLimitChange && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="page-size" className="text-sm text-gray-700">
+                Show:
+              </label>
+              <select
+                id="page-size"
+                value={limit || 20}
+                onChange={(e) => onLimitChange(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div>
           <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">

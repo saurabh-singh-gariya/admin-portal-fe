@@ -4,10 +4,13 @@ export enum AdminRole {
 }
 
 export enum BetStatus {
-  PENDING = 'PENDING',
+  PLACED = 'PLACED',
+  PENDING_SETTLEMENT = 'PENDING_SETTLEMENT',
   WON = 'WON',
   LOST = 'LOST',
   CANCELLED = 'CANCELLED',
+  REFUNDED = 'REFUNDED',
+  SETTLEMENT_FAILED = 'SETTLEMENT_FAILED',
 }
 
 export enum Difficulty {
@@ -51,9 +54,10 @@ export interface Bet {
   betAmount: string;
   winAmount?: string;
   currency: string;
-  status: BetStatus;
+  status: BetStatus | string; // Allow all backend statuses
   betPlacedAt: string;
   settledAt?: string;
+  finalCoeff?: string;
 }
 
 export interface Agent {
@@ -62,6 +66,8 @@ export interface Agent {
   agentIPaddress: string;
   callbackURL: string;
   isWhitelisted: boolean;
+  currency?: string;
+  allowedGameCodes?: string[];
   createdAt: string;
   updatedAt: string;
   statistics?: {
@@ -105,6 +111,7 @@ export interface BetFilters {
   fromDate?: string;
   toDate?: string;
   page?: number;
+  limit?: number;
 }
 
 export interface DashboardStats {
@@ -157,6 +164,7 @@ export interface AgentFilters {
   fromDate?: string;
   toDate?: string;
   page?: number;
+  limit?: number;
 }
 
 export interface PlayerSummaryFilters {
@@ -167,6 +175,7 @@ export interface PlayerSummaryFilters {
   fromDate?: string;
   toDate?: string;
   page?: number;
+  limit?: number;
 }
 
 // Totals interfaces
